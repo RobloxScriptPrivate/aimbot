@@ -1,4 +1,4 @@
--- ========== ESP SIMPLES (BORDA CONFORME TIME) ==========
+-- ========== ESP (Wallhack) MELHORADO V2 ==========
 local Library, Visual = ..., select(2, ...)
 
 -- Serviços
@@ -10,182 +10,167 @@ local LocalPlayer = Players.LocalPlayer
 -- CONFIGURAÇÕES
 local Config = {
     Enabled = false,
+    Boxes = true,
+    Tracers = false,
     TeamCheck = true,
-    OutlineThickness = 2,
-    ShowDistance = true,
+    TracerStartPoint = "Bottom",
 }
 
 -- VARIÁVEIS
-local espObjects = {}
+local drawings = {}
 
--- Cores dos times
-local function GetTeamColor(player)
-    if not Config.TeamCheck then
-        return Color3.fromRGB(255, 255, 255)
-    end
-    
-    if not player.Team or not LocalPlayer.Team then
-        return Color3.fromRGB(200, 200, 200)
-    end
-    
-    if player.Team == LocalPlayer.Team then
-        return Color3.fromRGB(0, 255, 0)
-    else
-        return Color3.fromRGB(255, 0, 0)
+-- Limpa todos os desenhos de um jogador
+local function ClearPlayerDrawings(player)
+    if drawings[player] then
+        for _, d in ipairs(drawings[player]) do
+            d:Remove()
+        end
+        drawings[player] = nil
     end
 end
 
+-- Limpa tudo
+local function ClearAllDrawings()
+    for player in pairs(drawings) do
+        ClearPlayerDrawings(player)
+    end
+end
+
+-- Mesma função de validação dos outros scripts
 local function IsValidTarget(player)
-    if player == LocalPlayer then return false end
+    if not player or player == LocalPlayer then return false end
+    if Config.TeamCheck and player.Team and player.Team == LocalPlayer.Team then return false end
     local character = player.Character
     if not character then return false end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
-    return humanoid and humanoid.Health > 0
+    return humanoid and humanoid.Health > 0 and character:FindFirstChild("HumanoidRootPart")
 end
 
-local function DrawOutline(player, color)
-    local character = player.Character
-    if not character then return end
-    
-    local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
-    local anyVisible = false
-    
-    for _, part in ipairs(character:GetDescendants()) do
-        if part:IsA("BasePart") and part.Visible then
-            local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-            if onScreen and screenPos.Z > 0 then
-                anyVisible = true
-                minX = math.min(minX, screenPos.X)
-                minY = math.min(minY, screenPos.Y)
-                maxX = math.max(maxX, screenPos.X)
-                maxY = math.max(maxY, screenPos.Y)
-            end
-        end
+-- Retorna a cor do time
+local function GetTeamColor(player)
+    if not Config.TeamCheck or not player.Team or not LocalPlayer.Team then
+        return Color3.fromRGB(255, 255, 0) -- Amarelo se a checagem estiver desativada
     end
-    
-    if not anyVisible then return end
-    
-    local padding = 5
-    minX = minX - padding
-    minY = minY - padding
-    maxX = maxX + padding
-    maxY = maxY + padding
-    
-    if not espObjects[player] then
-        espObjects[player] = {
-            top = Drawing.new("Line"),
-            bottom = Drawing.new("Line"),
-            left = Drawing.new("Line"),
-            right = Drawing.new("Line"),
-            distance = Drawing.new("Text")
-        }
-        
-        for _, line in pairs(espObjects[player]) do
-            if line ~= espObjects[player].distance then
-                line.Thickness = Config.OutlineThickness
-                line.Transparency = 0.8
-                line.Visible = true
-            end
-        end
-        
-        espObjects[player].distance.Size = 12
-        espObjects[player].distance.Outline = true
-        espObjects[player].distance.Center = true
-        espObjects[player].distance.Font = 2
-    end
-    
-    local lines = espObjects[player]
-    lines.top.From = Vector2.new(minX, minY)
-    lines.top.To = Vector2.new(maxX, minY)
-    lines.bottom.From = Vector2.new(minX, maxY)
-    lines.bottom.To = Vector2.new(maxX, maxY)
-    lines.left.From = Vector2.new(minX, minY)
-    lines.left.To = Vector2.new(minX, maxY)
-    lines.right.From = Vector2.new(maxX, minY)
-    lines.right.To = Vector2.new(maxX, maxY)
-    
-    lines.top.Color = color
-    lines.bottom.Color = color
-    lines.left.Color = color
-    lines.right.Color = color
-    
-    if Config.ShowDistance and character:FindFirstChild("HumanoidRootPart") then
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            local distance = (root.Position - character.HumanoidRootPart.Position).Magnitude
-            local centerX = (minX + maxX) / 2
-            local centerY = (minY + maxY) / 2
-            lines.distance.Position = Vector2.new(centerX, maxY + 15)
-            lines.distance.Text = string.format("%.1f m", distance)
-            lines.distance.Color = color
-            lines.distance.Visible = true
-        end
-    else
-        lines.distance.Visible = false
-    end
+    return player.Team == LocalPlayer.Team and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 80, 80)
 end
 
-local function ClearESP()
-    for player, objects in pairs(espObjects) do
-        for _, obj in pairs(objects) do
-            obj:Remove()
+-- Função principal de desenho
+local function UpdateESP()
+    -- Limpa desenhos de jogadores que saíram
+    for player, _ in pairs(drawings) do
+        if not player or not player.Parent then
+            ClearPlayerDrawings(player)
         end
     end
-    espObjects = {}
-end
 
-RunService.RenderStepped:Connect(function()
-    if not Config.Enabled then
-        ClearESP()
-        return
-    end
-    
-    for player in pairs(espObjects) do
-        if not IsValidTarget(player) then
-            for _, obj in pairs(espObjects[player]) do
-                obj:Remove()
-            end
-            espObjects[player] = nil
-        end
-    end
-    
+    -- Desenha para jogadores válidos
     for _, player in ipairs(Players:GetPlayers()) do
         if IsValidTarget(player) then
-            DrawOutline(player, GetTeamColor(player))
+            local character = player.Character
+            local rootPart = character.HumanoidRootPart
+            local head = character:FindFirstChild("Head")
+            if not head then continue end
+            
+            -- Limpa desenhos antigos para recriar
+            ClearPlayerDrawings(player)
+            drawings[player] = {}
+
+            local color = GetTeamColor(player)
+
+            -- BOX ESP (Caixa)
+            if Config.Boxes then
+                local size = Vector3.new(4, 6, 2) -- Tamanho aproximado de um personagem
+                local cframe = rootPart.CFrame * CFrame.new(0, -1, 0) -- Ajusta a posição da caixa
+
+                local points = {
+                    cframe * CFrame.new(size.X/2, size.Y/2, 0).Position,
+                    cframe * CFrame.new(size.X/2, -size.Y/2, 0).Position,
+                    cframe * CFrame.new(-size.X/2, -size.Y/2, 0).Position,
+                    cframe * CFrame.new(-size.X/2, size.Y/2, 0).Position,
+                }
+
+                local screenPoints = {}
+                local onScreen = true
+                for i, point in ipairs(points) do
+                    local screenPos, isOnScreen = Camera:WorldToViewportPoint(point)
+                    if not isOnScreen then onScreen = false; break end
+                    table.insert(screenPoints, Vector2.new(screenPos.X, screenPos.Y))
+                end
+
+                if onScreen then
+                    local topLeft = screenPoints[4]
+                    local bottomRight = screenPoints[2]
+                    local boxWidth = math.abs(topLeft.X - bottomRight.X)
+                    local boxHeight = math.abs(topLeft.Y - bottomRight.Y)
+
+                    local box = Drawing.new("Square")
+                    box.Visible = true
+                    box.Color = color
+                    box.Thickness = 1
+                    box.Size = Vector2.new(boxWidth, boxHeight)
+                    box.Position = Vector2.new(topLeft.X, topLeft.Y)
+                    box.Filled = false
+                    table.insert(drawings[player], box)
+                end
+            end
+
+            -- TRACERS (Linhas)
+            if Config.Tracers then
+                local startPos
+                if Config.TracerStartPoint == "Top" then
+                    startPos = Vector2.new(Camera.ViewportSize.X / 2, 0)
+                elseif Config.TracerStartPoint == "Mouse" then
+                    startPos = UserInputService:GetMouseLocation()
+                else -- Bottom
+                    startPos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                end
+                
+                local headPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local tracer = Drawing.new("Line")
+                    tracer.Visible = true
+                    tracer.Color = color
+                    tracer.Thickness = 1
+                    tracer.From = startPos
+                    tracer.To = Vector2.new(headPos.X, headPos.Y)
+                    table.insert(drawings[player], tracer)
+                end
+            end
+        else
+            -- Limpa se o alvo se tornou inválido
+            ClearPlayerDrawings(player)
         end
     end
-end)
-
--- ========== LIMPEZA ==========
-local function Cleanup()
-    ClearESP()
 end
 
+
+-- Loop principal
+local connection
+local function ToggleLoop(state)
+    if state and not connection then
+        connection = RunService.RenderStepped:Connect(UpdateESP)
+    elseif not state and connection then
+        connection:Disconnect()
+        connection = nil
+        ClearAllDrawings()
+    end
+end
+
+
 -- ========== ADICIONA O MÓDULO À CATEGORIA VISUAL ==========
-local ESP = Visual:AddModule("🎨 ESP (Borda)", function(state)
+local ESP_Module = Visual:AddModule("👁️ ESP", function(state)
     Config.Enabled = state
-    if not state then ClearESP() end
+    ToggleLoop(state)
 end, false)
 
-ESP:AddToggle("👥 Mostrar por Time", Config.TeamCheck, function(state)
-    Config.TeamCheck = state
-end)
+ESP_Module:AddToggle("📦 Boxes (Caixas)", Config.Boxes, function(state) Config.Boxes = state end)
+ESP_Module:AddToggle("📈 Tracers (Linhas)", Config.Tracers, function(state) Config.Tracers = state end)
+ESP_Module:AddToggle("👥 Checagem de Time", Config.TeamCheck, function(state) Config.TeamCheck = state end)
+ESP_Module:AddDropdown("📍 Ponto do Tracer", {"Bottom", "Top", "Mouse"}, function(val) Config.TracerStartPoint = val end)
 
-ESP:AddToggle("📏 Mostrar Distância", Config.ShowDistance, function(state)
-    Config.ShowDistance = state
-end)
+print("✅ ESP V2 carregado!")
 
-ESP:AddSlider("📏 Espessura", 1, 5, Config.OutlineThickness, function(value)
-    Config.OutlineThickness = value
-    for player, objects in pairs(espObjects) do
-        for _, line in pairs(objects) do
-            if line ~= objects.distance then
-                line.Thickness = value
-            end
-        end
-    end
-end)
-
-print("✅ ESP carregado!")
-
-return Cleanup
+-- Função de limpeza para quando o script for removido
+return function()
+    ToggleLoop(false)
+end
