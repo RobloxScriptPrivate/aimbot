@@ -1,4 +1,4 @@
--- ========== TELEPORTE V4 ==========
+-- ========== TELEPORTE V5 (Padrão Aimbot) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -7,29 +7,17 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Tabela para guardar os checkpoints
 local savedCheckpoints = {}
-
--- Cria uma seção dedicada dentro da categoria de Teleporte para os botões
--- É ESSENCIAL passar uma função (mesmo que vazia) como segundo argumento!
-local CheckpointSection = TeleportCategory:AddModule("Checkpoints Salvos", function() end)
-
--- Função para adicionar um botão de teleporte à GUI principal
-local function addTeleportButton(name, position)
-    CheckpointSection:AddButton("🚀 TP > " .. name, function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = position
-            print("Teleportado para: " .. name)
-        else
-            print("Erro: Personagem não encontrado.")
-        end
-    end)
-end
+local teleportModule = nil -- Placeholder para o módulo da GUI
 
 -- Função para abrir o menu de salvar checkpoint
 local function openSaveMenu()
+    -- Se o módulo não foi criado ainda, não faz nada.
+    if not teleportModule then return end
+
     local playerGui = LocalPlayer:WaitForChild("PlayerGui")
     if playerGui:FindFirstChild("CheckpointSaveMenu") then return end
 
-    -- Criação da GUI
+    -- (O código da GUI para o menu de salvar permanece o mesmo)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CheckpointSaveMenu"
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
@@ -57,7 +45,7 @@ local function openSaveMenu()
     title.Font = Enum.Font.SourceSansBold
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.TextOffset = Vector2.new(10, 0)
-    title.BackgroundTransparency = 1 -- Corrigido
+    title.BackgroundTransparency = 1
     title.Parent = titleBar
 
     local closeButton = Instance.new("TextButton")
@@ -92,25 +80,30 @@ local function openSaveMenu()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 local pos = LocalPlayer.Character.HumanoidRootPart.CFrame
                 savedCheckpoints[name] = pos
-                addTeleportButton(name, pos)
-                print("Checkpoint '"..name.."' salvo!")
-                screenGui:Destroy() -- Fecha o menu após salvar
-            else
-                warn("Não foi possível salvar: Posição do jogador não encontrada.")
+                -- Adiciona o botão ao módulo principal
+                teleportModule:AddButton("🚀 TP > " .. name, function()
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = pos
+                    end
+                end)
+                screenGui:Destroy()
             end
-        else
-            warn("Não foi possível salvar: Nome inválido, vazio ou já existente.")
         end
     end)
 end
 
--- Botão principal que abre o menu de salvamento
-local SaveModule = TeleportCategory:AddModule("🔧 Gerenciar Pontos", function() end)
-SaveModule:AddButton("📌 Salvar Ponto Atual", openSaveMenu)
+-- CRIAÇÃO DO MÓDULO PRINCIPAL (seguindo o padrão do aimbot.lua)
+-- A função de toggle principal apenas ativa/desativa o módulo, não precisa fazer nada a mais.
+teleportModule = TeleportCategory:AddModule("🚀 Teleporte Custom", function(state)
+    -- A lógica é controlada pelos botões, então o toggle principal pode não fazer nada.
+end)
 
-print("✅ Módulo de Teleporte carregado (v4)!")
+-- Adiciona o botão de salvar ao módulo principal
+teleportModule:AddButton("📌 Salvar Ponto Atual", openSaveMenu)
 
--- Função de limpeza para quando o script for removido
+print("✅ Módulo de Teleporte carregado (v5)!")
+
+-- Função de limpeza
 return function()
     local playerGui = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
     if playerGui then

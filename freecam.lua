@@ -1,4 +1,4 @@
--- ========== FREECAM V4 ==========
+-- ========== FREECAM V5 (Padrão Aimbot) ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
@@ -8,21 +8,20 @@ local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variáveis
+local freecamEnabled = false
 local freecamConnection = nil
 local originalCharacter = nil
 local fakeCharacter = nil
 local freecamSpeed = 50
 
--- Função para clonar o personagem e prepará-lo para a freecam
+-- Função para clonar o personagem
 local function createFakeCharacter()
-    -- VERIFICAÇÃO ADICIONADA: Garante que o personagem existe
     if not LocalPlayer.Character or not LocalPlayer.Character.Parent then return end
 
     originalCharacter = LocalPlayer.Character
     fakeCharacter = originalCharacter:Clone()
     fakeCharacter.Name = "FreecamCharacter"
     fakeCharacter.Parent = workspace
-    -- Deixa o char falso invisível e sem colisão
     for _, part in ipairs(fakeCharacter:GetDescendants()) do
         if part:IsA("BasePart") then
             part.Transparency = 1
@@ -30,21 +29,16 @@ local function createFakeCharacter()
         end
     end
 
-    -- Prende o char original no lugar
     if originalCharacter:FindFirstChild("HumanoidRootPart") then
       originalCharacter.HumanoidRootPart.Anchored = true
     end
-
-    -- Muda a câmera para o char falso
     workspace.CurrentCamera.CameraSubject = fakeCharacter:FindFirstChildOfClass("Humanoid")
 end
 
--- Função de movimento da freecam
+-- Loop de movimento
 local function freecamLoop()
     local camera = workspace.CurrentCamera
     local moveVector = Vector3.new()
-
-    -- Teclas de movimento
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
     if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
     if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1, 0, 0) end
@@ -53,17 +47,17 @@ local function freecamLoop()
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector = moveVector + Vector3.new(0, -1, 0) end
 
     if fakeCharacter and fakeCharacter:FindFirstChild("HumanoidRootPart") then
-        -- Movimento relativo à câmera
         local relativeMove = camera.CFrame:VectorToWorldSpace(moveVector)
-        fakeCharacter.HumanoidRootPart.CFrame = fakeCharacter.HumanoidRootPart.CFrame + relativeMove * (freecamSpeed / 10)
+        fakeCharacter.HumanoidRootPart.CFrame = fakeCharacter.HumanoidRootP art.CFrame + relativeMove * (freecamSpeed / 10)
     end
 end
 
 -- Ativa/Desativa o modo Freecam
 local function toggleFreecam(state)
-    if state then
+    freecamEnabled = state
+    if freecamEnabled then
         createFakeCharacter()
-        if fakeCharacter then
+        if fakeCharacter then -- Apenas conecta o loop se o personagem falso foi criado
             freecamConnection = RunService.RenderStepped:Connect(freecamLoop)
         end
     else
@@ -83,13 +77,14 @@ local function toggleFreecam(state)
     end
 end
 
--- Adiciona o Módulo à categoria de Movimento, usando a função de toggle como segundo argumento
+-- CRIAÇÃO DO MÓDULO E CONTROLES (Padrão Aimbot)
 local FreecamModule = MovementCategory:AddModule("📷 Freecam", toggleFreecam)
+
 FreecamModule:AddSlider("Velocidade da Freecam", 10, 200, freecamSpeed, function(val) freecamSpeed = val end)
 
-print("✅ Módulo Freecam carregado (v4)!")
+print("✅ Módulo Freecam carregado (v5)!")
 
 -- Função de limpeza
 return function()
-    toggleFreecam(false) -- Garante que tudo é revertido
+    toggleFreecam(false)
 end
