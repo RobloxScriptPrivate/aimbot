@@ -1,4 +1,4 @@
--- Manus GUI Library V4.4 (Restaurada e Corrigida)
+-- Manus GUI Library V4.7 (Visual de Sub-opções Refinado)
 local Library = {}
 
 -- Serviços
@@ -21,7 +21,7 @@ Library.SettingsOpen = false
     Inicialização da GUI Principal
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V4_4"
+ScreenGui.Name = "ManusGuiLib_V4_7"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -337,7 +337,7 @@ function Library:CreateCategory(name, position)
     end)
     
     function categoryObj:AddModule(moduleName, callback, isTrigger)
-        local moduleObj = { Enabled = false, IsTrigger = isTrigger or false }
+        local moduleObj = { Enabled = false, IsTrigger = isTrigger or false, SubExpanded = false }
         
         local ModuleContainer = Instance.new("Frame")
         ModuleContainer.Size = UDim2.new(1, 0, 0, 25)
@@ -345,7 +345,7 @@ function Library:CreateCategory(name, position)
         ModuleContainer.Parent = OptionsFrame
         
         local ModuleBtn = Instance.new("TextButton")
-        ModuleBtn.Size = UDim2.new(1, 0, 1, 0)
+        ModuleBtn.Size = UDim2.new(1, 0, 0, 25)
         ModuleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
         ModuleBtn.BorderSizePixel = 0
         ModuleBtn.Text = "  " .. moduleName
@@ -382,42 +382,50 @@ function Library:CreateCategory(name, position)
             OptionsFrame.Size = UDim2.new(1, 0, 0, totalHeight)
         end
         
+        function moduleObj:ToggleSub()
+            self.SubExpanded = not self.SubExpanded
+            SubFrame.Visible = self.SubExpanded
+            updateSizes()
+        end
+
         function moduleObj:Execute()
             if self.IsTrigger then
+                local oldColor = ModuleBtn.TextColor3
+                ModuleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                task.delay(0.1, function() ModuleBtn.TextColor3 = oldColor end)
                 if callback then callback() end
             else
                 self.Enabled = not self.Enabled
                 ModuleBtn.TextColor3 = self.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
-                SubFrame.Visible = self.Enabled
-                updateSizes()
                 if callback then callback(self.Enabled) end
             end
         end
 
         ModuleBtn.MouseButton1Click:Connect(function() moduleObj:Execute() end)
+        ModuleBtn.MouseButton2Click:Connect(function() moduleObj:ToggleSub() end)
 
-        -- API de Subcontroles
+        -- API de Subcontroles (Visual Refinado)
         function moduleObj:AddToggle(text, default, subCallback)
             local state = default or false
             local ToggleFrame = Instance.new("Frame")
-            ToggleFrame.Size = UDim2.new(1, 0, 0, 25)
+            ToggleFrame.Size = UDim2.new(1, 0, 0, 22)
             ToggleFrame.BackgroundTransparency = 1
             ToggleFrame.Parent = SubFrame
             
             local Btn = Instance.new("TextButton")
             Btn.Size = UDim2.new(1, 0, 1, 0)
             Btn.BackgroundTransparency = 1
-            Btn.Text = "    [ " .. (state and "X" or " ") .. " ] " .. text
-            Btn.TextColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 180)
+            Btn.Text = "    " .. text
+            -- Verde suave com menos opacidade para diferenciar do módulo principal
+            Btn.TextColor3 = state and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160)
             Btn.Font = Enum.Font.SourceSans
-            Btn.TextSize = 14
+            Btn.TextSize = 13
             Btn.TextXAlignment = Enum.TextXAlignment.Left
             Btn.Parent = ToggleFrame
             
             Btn.MouseButton1Click:Connect(function()
                 state = not state
-                Btn.Text = "    [ " .. (state and "X" or " ") .. " ] " .. text
-                Btn.TextColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 180)
+                Btn.TextColor3 = state and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160)
                 if subCallback then subCallback(state) end
             end)
             updateSizes()
@@ -425,22 +433,22 @@ function Library:CreateCategory(name, position)
 
         function moduleObj:AddSlider(text, min, max, default, subCallback)
             local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size = UDim2.new(1, 0, 0, 40)
+            SliderFrame.Size = UDim2.new(1, 0, 0, 35)
             SliderFrame.BackgroundTransparency = 1
             SliderFrame.Parent = SubFrame
             
             local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, 0, 0, 20)
+            Label.Size = UDim2.new(1, 0, 0, 18)
             Label.Text = "    " .. text .. ": " .. tostring(default)
-            Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+            Label.TextColor3 = Color3.fromRGB(180, 180, 180)
             Label.BackgroundTransparency = 1
             Label.Font = Enum.Font.SourceSans
-            Label.TextSize = 14
+            Label.TextSize = 13
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.Parent = SliderFrame
             
             local Bar = Instance.new("Frame")
-            Bar.Size = UDim2.new(0.8, 0, 0, 5)
+            Bar.Size = UDim2.new(0.8, 0, 0, 4)
             Bar.Position = UDim2.new(0.1, 0, 0.7, 0)
             Bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
             Bar.Parent = SliderFrame
@@ -448,7 +456,7 @@ function Library:CreateCategory(name, position)
             local Fill = Instance.new("Frame")
             local percent = (default - min) / (max - min)
             Fill.Size = UDim2.new(percent, 0, 1, 0)
-            Fill.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+            Fill.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
             Fill.Parent = Bar
             
             local function update(input)
@@ -474,7 +482,7 @@ function Library:CreateCategory(name, position)
 
         function moduleObj:AddDropdown(text, options, subCallback)
             local DropdownFrame = Instance.new("Frame")
-            DropdownFrame.Size = UDim2.new(1, 0, 0, 25)
+            DropdownFrame.Size = UDim2.new(1, 0, 0, 22)
             DropdownFrame.BackgroundTransparency = 1
             DropdownFrame.Parent = SubFrame
             
@@ -482,9 +490,9 @@ function Library:CreateCategory(name, position)
             Btn.Size = UDim2.new(1, 0, 1, 0)
             Btn.BackgroundTransparency = 1
             Btn.Text = "    > " .. text .. ": " .. tostring(options[1])
-            Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            Btn.TextColor3 = Color3.fromRGB(180, 180, 180)
             Btn.Font = Enum.Font.SourceSans
-            Btn.TextSize = 14
+            Btn.TextSize = 13
             Btn.TextXAlignment = Enum.TextXAlignment.Left
             Btn.Parent = DropdownFrame
             
