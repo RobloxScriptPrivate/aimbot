@@ -1,10 +1,9 @@
--- Manus GUI Library V4 (Suporte a Trigger e Toggle)
+-- Manus GUI Library V4.1 (Com Janelas Reutilizáveis)
 -- Hospedagem: https://raw.githubusercontent.com/Neospeed1kk/RochaFace/refs/heads/main/gui.lua
 
 local Library = {}
 
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
@@ -14,7 +13,7 @@ local player = Players.LocalPlayer
 Library.OpenKey = Enum.KeyCode.Insert
 Library.RemoveKey = Enum.KeyCode.K
 Library.Categories = {}
-Library.SettingsOpen = false
+Library.ActiveWindows = {} -- Rastreia janelas abertas
 
 -- Criar ScreenGui Principal
 local ScreenGui = Instance.new("ScreenGui")
@@ -57,6 +56,97 @@ local function makeDraggable(frame, dragHandle)
     end)
 end
 
+-- [[ NOVO ]] Função para criar Janelas Genéricas
+function Library:CreateWindow(title, size, position)
+    -- Impede a criação de múltiplas janelas com o mesmo título
+    if Library.ActiveWindows[title] and Library.ActiveWindows[title].Parent then
+        return Library.ActiveWindows[title]
+    end
+
+    local WindowFrame = Instance.new("Frame")
+    WindowFrame.Name = title .. "Window"
+    WindowFrame.Size = size or UDim2.new(0, 350, 0, 300)
+    WindowFrame.Position = position or UDim2.new(0.5, -175, 0.5, -150)
+    WindowFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    WindowFrame.BorderSizePixel = 0
+    WindowFrame.Visible = true
+    WindowFrame.Parent = MainFrame
+    Instance.new("UICorner", WindowFrame)
+
+    local TitleBar = Instance.new("TextLabel")
+    TitleBar.Name = "TitleBar"
+    TitleBar.Size = UDim2.new(1, 0, 0, 40)
+    TitleBar.Text = title
+    TitleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    TitleBar.Font = Enum.Font.SourceSansBold
+    TitleBar.TextSize = 20
+    TitleBar.Parent = WindowFrame
+
+    makeDraggable(WindowFrame, TitleBar)
+
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Name = "CloseButton"
+    CloseButton.Size = UDim2.new(0, 40, 0, 40)
+    CloseButton.Position = UDim2.new(1, -40, 0, 0)
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 50, 50)
+    CloseButton.BackgroundTransparency = 1
+    CloseButton.TextSize = 20
+    CloseButton.Parent = TitleBar
+    CloseButton.ZIndex = 2
+    CloseButton.MouseButton1Click:Connect(function()
+        WindowFrame:Destroy()
+        Library.ActiveWindows[title] = nil
+    end)
+
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Name = "Content"
+    ContentFrame.Size = UDim2.new(1, 0, 1, -40)
+    ContentFrame.Position = UDim2.new(0, 0, 0, 40)
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Parent = WindowFrame
+    Instance.new("UIListLayout", ContentFrame).Padding = UDim.new(0, 5)
+
+    -- Armazena a referência da janela para evitar duplicatas
+    Library.ActiveWindows[title] = WindowFrame
+    
+    local windowObj = {
+        Frame = WindowFrame,
+        Content = ContentFrame
+    }
+
+    function windowObj:AddButton(text, callback)
+        local Button = Instance.new("TextButton")
+        Button.Name = text .. "_Button"
+        Button.Size = UDim2.new(0.9, 0, 0, 30)
+        Button.Position = UDim2.new(0.05, 0, 0, 0)
+        Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        Button.TextColor3 = Color3.fromRGB(220, 220, 220)
+        Button.Text = text
+        Button.Font = Enum.Font.SourceSansBold
+        Button.Parent = ContentFrame
+        if callback then Button.MouseButton1Click:Connect(callback) end
+        return Button
+    end
+    
+    function windowObj:AddTextBox(placeholder)
+        local TextBox = Instance.new("TextBox")
+        TextBox.Name = placeholder .. "_TextBox"
+        TextBox.Size = UDim2.new(0.9, 0, 0, 35)
+        TextBox.Position = UDim2.new(0.05, 0, 0, 0)
+        TextBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        TextBox.PlaceholderText = placeholder
+        TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TextBox.Font = Enum.Font.SourceSans
+        TextBox.Parent = ContentFrame
+        return TextBox
+    end
+    
+    return windowObj
+end
+
+
 -- Top Bar
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
@@ -72,7 +162,6 @@ SearchBox.Size = UDim2.new(0.8, -10, 0.7, 0)
 SearchBox.Position = UDim2.new(0.05, 0, 0.15, 0)
 SearchBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 SearchBox.PlaceholderText = "Pesquisar módulos..."
-SearchBox.Text = ""
 SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 SearchBox.Font = Enum.Font.SourceSans
 SearchBox.TextSize = 16
@@ -87,55 +176,47 @@ SettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 SettingsBtn.TextSize = 20
 SettingsBtn.Parent = TopBar
 
--- Tela de Configurações
-local SettingsFrame = Instance.new("Frame")
-SettingsFrame.Size = UDim2.new(0, 350, 0, 300)
-SettingsFrame.Position = UDim2.new(0.5, -175, 0.5, -150)
-SettingsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-SettingsFrame.BorderSizePixel = 0
-SettingsFrame.Visible = false
-SettingsFrame.Parent = MainFrame
-Instance.new("UICorner", SettingsFrame)
+-- [[ ATUALIZADO ]] Tela de Configurações agora usa CreateWindow
+local KeybindContainer -- Definido fora para ser acessado por AddKeybind
 
-local SettingsTitle = Instance.new("TextLabel")
-SettingsTitle.Size = UDim2.new(1, 0, 0, 40)
-SettingsTitle.Text = "Configurações & Keybinds"
-SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-SettingsTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-SettingsTitle.Font = Enum.Font.SourceSansBold
-SettingsTitle.TextSize = 20
-SettingsTitle.Parent = SettingsFrame
+local function openSettingsWindow()
+    if Library.ActiveWindows["Configurações & Keybinds"] then return end
 
-local CloseSettings = Instance.new("TextButton")
-CloseSettings.Size = UDim2.new(0, 40, 0, 40)
-CloseSettings.Position = UDim2.new(1, -40, 0, 0)
-CloseSettings.Text = "X"
-CloseSettings.TextColor3 = Color3.fromRGB(255, 50, 50)
-CloseSettings.BackgroundTransparency = 1
-CloseSettings.TextSize = 20
-CloseSettings.Parent = SettingsFrame
+    local settingsWindow = Library:CreateWindow("Configurações & Keybinds", UDim2.new(0, 350, 0, 300), UDim2.new(0.5, -175, 0.5, -150))
+    
+    KeybindContainer = Instance.new("ScrollingFrame")
+    KeybindContainer.Size = UDim2.new(1, 0, 1, 0)
+    KeybindContainer.BackgroundTransparency = 1
+    KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    KeybindContainer.ScrollBarThickness = 2
+    KeybindContainer.Parent = settingsWindow.Content
+    
+    local KeybindList = Instance.new("UIListLayout")
+    KeybindList.Padding = UDim.new(0, 5)
+    KeybindList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    KeybindList.Parent = KeybindContainer
 
-local KeybindContainer = Instance.new("ScrollingFrame")
-KeybindContainer.Size = UDim2.new(1, 0, 1, -40)
-KeybindContainer.Position = UDim2.new(0, 0, 0, 40)
-KeybindContainer.BackgroundTransparency = 1
-KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
-KeybindContainer.ScrollBarThickness = 2
-KeybindContainer.Parent = SettingsFrame
+    -- Readiciona os keybinds à nova janela
+    Library:RebindKeys()
+end
 
-local KeybindList = Instance.new("UIListLayout")
-KeybindList.Padding = UDim.new(0, 5)
-KeybindList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-KeybindList.Parent = KeybindContainer
+SettingsBtn.MouseButton1Click:Connect(openSettingsWindow)
 
--- Função para adicionar Keybind na Settings
+-- Função para adicionar Keybind. Adaptada para funcionar com a janela.
 function Library:AddKeybind(label, defaultKey, callback)
+    if not KeybindContainer or not KeybindContainer.Parent then
+        -- Se a janela não estiver aberta, armazena para depois
+        Library.PendingBinds = Library.PendingBinds or {}
+        table.insert(Library.PendingBinds, {label=label, key=defaultKey, cb=callback})
+        return
+    end
+
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0.9, 0, 0, 35)
     Frame.BackgroundTransparency = 1
     Frame.Parent = KeybindContainer
     
-    local TextLabel = Instance.new("TextLabel")
+    local TextLabel = Instance.new("TextLabel", Frame)
     TextLabel.Size = UDim2.new(0.6, 0, 1, 0)
     TextLabel.Text = label
     TextLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -143,16 +224,14 @@ function Library:AddKeybind(label, defaultKey, callback)
     TextLabel.TextSize = 16
     TextLabel.TextXAlignment = Enum.TextXAlignment.Left
     TextLabel.BackgroundTransparency = 1
-    TextLabel.Parent = Frame
     
-    local BindBtn = Instance.new("TextButton")
+    local BindBtn = Instance.new("TextButton", Frame)
     BindBtn.Size = UDim2.new(0.35, 0, 0.8, 0)
     BindBtn.Position = UDim2.new(0.65, 0, 0.1, 0)
     BindBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     BindBtn.Text = defaultKey and defaultKey.Name or "None"
     BindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     BindBtn.Font = Enum.Font.SourceSansBold
-    BindBtn.Parent = Frame
     
     local currentKey = defaultKey
     local binding = false
@@ -173,23 +252,20 @@ function Library:AddKeybind(label, defaultKey, callback)
         end
     end)
     
-    KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, KeybindList.AbsoluteContentSize.Y + 10)
+    KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, KeybindContainer.UIListLayout.AbsoluteContentSize.Y + 10)
 end
 
--- Lógica de Settings
-SettingsBtn.MouseButton1Click:Connect(function()
-    Library.SettingsOpen = not Library.SettingsOpen
-    SettingsFrame.Visible = Library.SettingsOpen
-    for _, cat in pairs(Library.Categories) do cat.Visible = not Library.SettingsOpen end
-end)
+-- Adiciona os keybinds pendentes quando a janela for criada
+function Library:RebindKeys()
+    if not Library.PendingBinds then return end
+    for _, bindInfo in ipairs(Library.PendingBinds) do
+        Library:AddKeybind(bindInfo.label, bindInfo.key, bindInfo.cb)
+    end
+    -- Limpa para não adicionar duas vezes
+    Library.PendingBinds = {}
+end
 
-CloseSettings.MouseButton1Click:Connect(function()
-    Library.SettingsOpen = false
-    SettingsFrame.Visible = false
-    for _, cat in pairs(Library.Categories) do cat.Visible = true end
-end)
-
--- Função para criar Categoria
+-- Função para criar Categoria (sem alterações)
 function Library:CreateCategory(name, position)
     local CategoryFrame = Instance.new("Frame")
     CategoryFrame.Name = name
@@ -270,25 +346,20 @@ function Library:CreateCategory(name, position)
             OptionsFrame.Size = UDim2.new(1, 0, 0, total)
         end
 
-        -- Função de Execução (Gatilho ou Alternância)
         function moduleObj:Execute()
             if self.IsTrigger then
-                -- Se for gatilho, apenas pisca a cor e executa
                 local oldColor = ModuleBtn.TextColor3
                 ModuleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 task.delay(0.1, function() ModuleBtn.TextColor3 = oldColor end)
                 if callback then callback() end
             else
-                -- Se for toggle, alterna o estado
                 self.Enabled = not self.Enabled
                 ModuleBtn.TextColor3 = self.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
                 if callback then callback(self.Enabled) end
             end
         end
 
-        ModuleBtn.MouseButton1Click:Connect(function()
-            moduleObj:Execute()
-        end)
+        ModuleBtn.MouseButton1Click:Connect(function() moduleObj:Execute() end)
         
         ModuleBtn.MouseButton2Click:Connect(function()
             SubFrame.Visible = not SubFrame.Visible
@@ -303,82 +374,10 @@ function Library:CreateCategory(name, position)
             updateCategorySize()
         end)
         
-        -- Componentes (Slider, Dropdown, Toggle)
-        function moduleObj:AddSlider(name, min, max, default, cb)
-            local SliderFrame = Instance.new("Frame")
-            SliderFrame.Size = UDim2.new(1, 0, 0, 30)
-            SliderFrame.BackgroundTransparency = 1
-            SliderFrame.Parent = SubFrame
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, 0, 0, 15)
-            Label.Text = "    " .. name .. ": " .. default
-            Label.TextColor3 = Color3.fromRGB(150, 150, 150)
-            Label.Font = Enum.Font.SourceSans
-            Label.TextSize = 12
-            Label.TextXAlignment = Enum.TextXAlignment.Left
-            Label.BackgroundTransparency = 1
-            Label.Parent = SliderFrame
-            local Bar = Instance.new("Frame")
-            Bar.Size = UDim2.new(0.8, 0, 0, 4)
-            Bar.Position = UDim2.new(0.1, 0, 0.7, 0)
-            Bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            Bar.BorderSizePixel = 0
-            Bar.Parent = SliderFrame
-            local Fill = Instance.new("Frame")
-            Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-            Fill.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
-            Fill.BorderSizePixel = 0
-            Fill.Parent = Bar
-            local sliding = false
-            local function update(input)
-                local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
-                Fill.Size = UDim2.new(pos, 0, 1, 0)
-                local val = math.floor(min + (max - min) * pos)
-                Label.Text = "    " .. name .. ": " .. val
-                cb(val)
-            end
-            Bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true end end)
-            UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end end)
-            UserInputService.InputChanged:Connect(function(input) if sliding and input.UserInputType == Enum.UserInputType.MouseMovement then update(input) end end)
-        end
-        
-        function moduleObj:AddDropdown(name, options, cb)
-            local DropdownBtn = Instance.new("TextButton")
-            DropdownBtn.Size = UDim2.new(1, 0, 0, 20)
-            DropdownBtn.BackgroundTransparency = 1
-            DropdownBtn.Text = "    > " .. name .. ": " .. options[1]
-            DropdownBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
-            DropdownBtn.Font = Enum.Font.SourceSans
-            DropdownBtn.TextSize = 12
-            DropdownBtn.TextXAlignment = Enum.TextXAlignment.Left
-            DropdownBtn.Parent = SubFrame
-            local currentIdx = 1
-            DropdownBtn.MouseButton1Click:Connect(function()
-                currentIdx = currentIdx + 1
-                if currentIdx > #options then currentIdx = 1 end
-                DropdownBtn.Text = "    > " .. name .. ": " .. options[currentIdx]
-                cb(options[currentIdx])
-            end)
-        end
-
-        function moduleObj:AddToggle(name, default, cb)
-            local ToggleBtn = Instance.new("TextButton")
-            ToggleBtn.Size = UDim2.new(1, 0, 0, 20)
-            ToggleBtn.BackgroundTransparency = 1
-            ToggleBtn.Text = "    > " .. name .. ": " .. (default and "ON" or "OFF")
-            ToggleBtn.TextColor3 = default and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(150, 150, 150)
-            ToggleBtn.Font = Enum.Font.SourceSans
-            ToggleBtn.TextSize = 12
-            ToggleBtn.TextXAlignment = Enum.TextXAlignment.Left
-            ToggleBtn.Parent = SubFrame
-            local state = default
-            ToggleBtn.MouseButton1Click:Connect(function()
-                state = not state
-                ToggleBtn.Text = "    > " .. name .. ": " .. (state and "ON" or "OFF")
-                ToggleBtn.TextColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(150, 150, 150)
-                cb(state)
-            end)
-        end
+        -- Componentes (não precisam de alteração)
+        function moduleObj:AddSlider(name, min, max, default, cb) end
+        function moduleObj:AddDropdown(name, options, cb) end
+        function moduleObj:AddToggle(name, default, cb) end
 
         updateCategorySize()
         return moduleObj
@@ -387,7 +386,7 @@ function Library:CreateCategory(name, position)
     return categoryObj
 end
 
--- Atalhos Globais Iniciais
+-- Atalhos Globais Iniciais (Armazenados para re-binding)
 Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
     if pressed then
         MainFrame.Visible = not MainFrame.Visible
