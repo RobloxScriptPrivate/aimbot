@@ -1,4 +1,4 @@
--- ========== FREECAM V2 ==========
+-- ========== FREECAM V3 ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
@@ -50,10 +50,12 @@ local function freecamLoop()
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector = moveVector + Vector3.new(0, -1, 0) end
 
     if fakeCharacter and fakeCharacter:FindFirstChild("HumanoidRootPart") then
-        local newPos = fakeCharacter.HumanoidRootPart.CFrame * CFrame.new(moveVector * (freecamSpeed / 10))
-        fakeCharacter.HumanoidRootPart.CFrame = newPos
+        -- Movimento relativo à câmera
+        local relativeMove = camera.CFrame:VectorToWorldSpace(moveVector)
+        fakeCharacter.HumanoidRootPart.CFrame = fakeCharacter.HumanoidRootPart.CFrame + relativeMove * (freecamSpeed / 10)
     end
 end
+
 
 -- Ativa/Desativa o modo Freecam
 local function toggleFreecam(state)
@@ -68,23 +70,23 @@ local function toggleFreecam(state)
             freecamConnection = nil
         end
         if originalCharacter and originalCharacter:FindFirstChild("HumanoidRootPart") then
+            workspace.CurrentCamera.CameraSubject = originalCharacter.Humanoid
             originalCharacter.HumanoidRootPart.Anchored = false
         end
         if fakeCharacter then
             fakeCharacter:Destroy()
             fakeCharacter = nil
         end
-        workspace.CurrentCamera.CameraSubject = LocalPlayer.Character.Humanoid
         originalCharacter = nil
     end
 end
 
 -- Adiciona o Módulo à categoria de Movimento
-local FreecamModule = Library:CreateSection(MovementCategory, "📷 Freecam")
-Library:AddToggle(FreecamModule, "Ativar Freecam", false, toggleFreecam)
-Library:AddSlider(FreecamModule, "Velocidade da Freecam", 10, 200, freecamSpeed, function(val) freecamSpeed = val end)
+local FreecamModule = MovementCategory:AddModule("📷 Freecam")
+FreecamModule:AddToggle("Ativar Freecam", false, toggleFreecam)
+FreecamModule:AddSlider("Velocidade da Freecam", 10, 200, freecamSpeed, function(val) freecamSpeed = val end)
 
-print("✅ Módulo Freecam carregado (v2)!")
+print("✅ Módulo Freecam carregado (v3)!")
 
 -- Função de limpeza
 return function()

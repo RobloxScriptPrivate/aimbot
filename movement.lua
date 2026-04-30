@@ -1,4 +1,4 @@
--- ========== MOVIMENTO (Speed, Noclip, Fly) V2 ==========
+-- ========== MOVIMENTO (Speed, Noclip, Fly) V3 ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
@@ -22,18 +22,14 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ========== MÓDULO: SPEED HACK ==========
--- Adiciona um Módulo para o slider de velocidade. Não precisa de toggle principal.
-local SpeedModule = Library:CreateSection(MovementCategory, "🏃 Velocidade")
-
-Library:AddSlider(SpeedModule, "Velocidade do Personagem", 16, 200, originalWalkSpeed, function(value)
+local SpeedModule = MovementCategory:AddModule("🏃 Velocidade")
+SpeedModule:AddSlider("Velocidade do Personagem", 16, 200, originalWalkSpeed, function(value)
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = value
     end
 end)
 
 -- ========== MÓDULO: NOCLIP ==========
-local NoclipModule = Library:CreateSection(MovementCategory, "👻 Noclip (Atravessar)")
-
 local function toggleNoclip(state)
     if state then
         if noclipConnection then noclipConnection:Disconnect() end -- Evita múltiplas conexões
@@ -53,11 +49,10 @@ local function toggleNoclip(state)
         end
     end
 end
-Library:AddToggle(NoclipModule, "Ativar Noclip", false, toggleNoclip)
+local NoclipModule = MovementCategory:AddModule("👻 Noclip (Atravessar)")
+NoclipModule:AddToggle("Ativar Noclip", false, toggleNoclip)
 
 -- ========== MÓDULO: FLY ==========
-local FlyModule = Library:CreateSection(MovementCategory, "✈️ Fly (Voar)")
-
 local flyKeys = {
     Forward = Enum.KeyCode.W,
     Backward = Enum.KeyCode.S,
@@ -110,10 +105,11 @@ local function toggleFly(state)
     end
 end
 
-Library:AddToggle(FlyModule, "Ativar Voo", false, toggleFly)
-Library:AddSlider(FlyModule, "Velocidade do Voo", 50, 500, flySpeed, function(val) flySpeed = val end)
+local FlyModule = MovementCategory:AddModule("✈️ Fly (Voar)")
+FlyModule:AddToggle("Ativar Voo", false, toggleFly)
+FlyModule:AddSlider("Velocidade do Voo", 50, 500, flySpeed, function(val) flySpeed = val end)
 
-print("✅ Módulos de Movimento carregados (v2)!")
+print("✅ Módulos de Movimento carregados (v3)!")
 
 -- Função de limpeza geral para o módulo de movimento
 return function()

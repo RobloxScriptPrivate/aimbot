@@ -1,4 +1,4 @@
--- ========== TELEPORTE V2 ==========
+-- ========== TELEPORTE V3 ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -9,11 +9,11 @@ local LocalPlayer = Players.LocalPlayer
 local savedCheckpoints = {}
 
 -- Cria uma seção dedicada dentro da categoria de Teleporte para os botões
-local CheckpointSection = Library:CreateSection(TeleportCategory, "Checkpoints Salvos")
+local CheckpointSection = TeleportCategory:AddModule("Checkpoints Salvos")
 
 -- Função para adicionar um botão de teleporte à GUI principal
 local function addTeleportButton(name, position)
-    Library:AddButton(CheckpointSection, "🚀 TP > " .. name, function()
+    CheckpointSection:AddButton("🚀 TP > " .. name, function()
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             LocalPlayer.Character.HumanoidRootPart.CFrame = position
             print("Teleportado para: " .. name)
@@ -105,11 +105,10 @@ local function openSaveMenu()
 end
 
 -- Botão principal que abre o menu de salvamento
-local SaveModule = Library:CreateSection(TeleportCategory, "🔧 Gerenciar Pontos")
-Library:AddButton(SaveModule, "📌 Salvar Ponto Atual", openSaveMenu)
+local SaveModule = TeleportCategory:AddModule("🔧 Gerenciar Pontos")
+SaveModule:AddButton("📌 Salvar Ponto Atual", openSaveMenu)
 
-
-print("✅ Módulo de Teleporte carregado (v2)!")
+print("✅ Módulo de Teleporte carregado (v3)!")
 
 -- Função de limpeza para quando o script for removido
 return function()
@@ -120,5 +119,4 @@ return function()
             menu:Destroy()
         end
     end
-    -- A biblioteca principal cuidará de limpar os botões e seções.
 end
