@@ -1,5 +1,5 @@
--- ========== AIMBOT DUPLO COM SUPORTE À BIBLIOTECA GUI ==========
-local Library = ... -- Recebe a biblioteca do loader
+-- ========== AIMBOT DUPLO MELHORADO ==========
+local Library = ...
 
 -- Serviços
 local Players = game:GetService("Players")
@@ -15,6 +15,8 @@ local Config = {
     AimPart = "Head",
     FOV = 250,
     TeamCheck = true,
+    ShowFOV = true,        -- Mostrar círculo do FOV
+    ShowPanels = true,     -- Mostrar painéis de informação
 }
 
 -- VARIÁVEIS
@@ -23,6 +25,7 @@ local aimingF = false        -- Tecla F (Mais próximo)
 local lockedTargetFOV = nil  -- Alvo do FOV
 local lockedTargetClose = nil -- Alvo do mais próximo
 local screenCenter = Vector2.new(0, 0)
+local canMoveCamera = true    -- Permite mover a câmera com o mouse
 
 -- ========== ELEMENTOS VISUAIS ==========
 -- Círculo FOV
@@ -54,7 +57,7 @@ Instance.new("UICorner", panelFOV).CornerRadius = UDim.new(0, 10)
 local titleFOV = Instance.new("TextLabel")
 titleFOV.Size = UDim2.new(1, 0, 0, 22)
 titleFOV.Position = UDim2.new(0, 0, 0, 0)
-titleFOV.Text = "🎯 ALVO DO FOV (Botão Direito - Segurar)"
+titleFOV.Text = "🎯 ALVO DO FOV (Botão Direito)"
 titleFOV.TextColor3 = Color3.fromRGB(0, 150, 255)
 titleFOV.TextSize = 11
 titleFOV.Font = Enum.Font.GothamBold
@@ -117,7 +120,7 @@ Instance.new("UICorner", panelClose).CornerRadius = UDim.new(0, 10)
 local titleClose = Instance.new("TextLabel")
 titleClose.Size = UDim2.new(1, 0, 0, 22)
 titleClose.Position = UDim2.new(0, 0, 0, 0)
-titleClose.Text = "👑 ALVO MAIS PRÓXIMO (Tecla F - Alternar)"
+titleClose.Text = "👑 ALVO MAIS PRÓXIMO (Tecla F)"
 titleClose.TextColor3 = Color3.fromRGB(0, 255, 100)
 titleClose.TextSize = 11
 titleClose.Font = Enum.Font.GothamBold
@@ -179,14 +182,17 @@ local function IsAlive(character)
 end
 
 local function GetTargetPart(character)
-    local head = character:FindFirstChild("Head")
-    if head then return head end
+    if Config.AimPart == "Head" then
+        local head = character:FindFirstChild("Head")
+        if head then return head end
+    end
     return character:FindFirstChild("HumanoidRootPart")
 end
 
+-- ENCONTRA ALVO DENTRO DO FOV (RESPEITANDO O RAIO)
 local function FindTargetInFOV()
     local bestTarget = nil
-    local bestScore = -math.huge
+    local bestDistance = Config.FOV + 1
     
     for _, player in ipairs(Players:GetPlayers()) do
         if not IsEnemy(player) then continue end
@@ -201,12 +207,10 @@ local function FindTargetInFOV()
         if not onScreen or screenPoint.Z <= 0 then continue end
         
         local fovDistance = (Vector2.new(screenPoint.X, screenPoint.Y) - screenCenter).Magnitude
-        if fovDistance > Config.FOV then continue end
         
-        local score = -fovDistance
-        
-        if score > bestScore then
-            bestScore = score
+        -- RESPEITA O FOV: só considera se estiver dentro do círculo
+        if fovDistance <= Config.FOV and fovDistance < bestDistance then
+            bestDistance = fovDistance
             bestTarget = player
         end
     end
@@ -214,6 +218,7 @@ local function FindTargetInFOV()
     return bestTarget
 end
 
+-- ENCONTRA O ALVO MAIS PRÓXIMO (distância real, IGNORA FOV)
 local function FindClosestTarget()
     local closestTarget = nil
     local closestDistance = math.huge
@@ -241,7 +246,13 @@ local function FindClosestTarget()
     return closestTarget, closestDistance
 end
 
+-- ATUALIZA PAINEL DO FOV
 local function UpdatePanelFOV(target, distance)
+    if not Config.ShowPanels then
+        panelFOV.Visible = false
+        return
+    end
+    
     if not target then
         panelFOV.Visible = false
         return
@@ -259,7 +270,13 @@ local function UpdatePanelFOV(target, distance)
     avatarFOV.Image = thumbnail
 end
 
+-- ATUALIZA PAINEL DO MAIS PRÓXIMO
 local function UpdatePanelClose(target, distance)
+    if not Config.ShowPanels then
+        panelClose.Visible = false
+        return
+    end
+    
     if not target then
         panelClose.Visible = false
         return
@@ -277,27 +294,35 @@ local function UpdatePanelClose(target, distance)
     avatarClose.Image = thumbnail
 end
 
+-- MIRA NO ALVO (sem perder controle do mouse)
 local function AimAt(target)
     if not target or not target.Character then return end
     
     local targetPart = GetTargetPart(target.Character)
     if not targetPart then return end
     
-    Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+    -- Salva a posição atual da câmera
+    local currentPos = Camera.CFrame.Position
+    
+    -- Aplica a mira suavemente (mas ainda permite mover o mouse)
+    local newCFrame = CFrame.new(currentPos, targetPart.Position)
+    Camera.CFrame = newCFrame
 end
 
+-- VERIFICA SE ALVO AINDA É VÁLIDO
 local function IsTargetValid(target)
     if not target or not target.Character then return false end
     if not IsAlive(target.Character) then return false end
     return true
 end
 
--- ========== FUNÇÃO DO BOTÃO DIREITO ==========
+-- ========== BOTÃO DIREITO (MÉTODO QUE NÃO TRAVA O MOUSE) ==========
 local function onRightClick(actionName, inputState, inputObject)
     if not Config.Enabled then return end
     
     if inputState == Enum.UserInputState.Begin then
         aimingRight = true
+        canMoveCamera = false  -- Desativa movimento da câmera com mouse (opcional)
         
         local target = FindTargetInFOV()
         if target then
@@ -306,7 +331,9 @@ local function onRightClick(actionName, inputState, inputObject)
             local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             local dist = root and (root.Position - lockedTargetFOV.Character.Head.Position).Magnitude or nil
             UpdatePanelFOV(lockedTargetFOV, dist)
-            circle.Color = Color3.fromRGB(0, 255, 0)
+            if Config.ShowFOV then
+                circle.Color = Color3.fromRGB(0, 255, 0)
+            end
         else
             lockedTargetFOV = nil
             panelFOV.Visible = false
@@ -314,9 +341,10 @@ local function onRightClick(actionName, inputState, inputObject)
         
     elseif inputState == Enum.UserInputState.End then
         aimingRight = false
+        canMoveCamera = true  -- Reativa movimento da câmera
         lockedTargetFOV = nil
         panelFOV.Visible = false
-        if not aimingF then
+        if not aimingF and Config.ShowFOV then
             circle.Color = Color3.fromRGB(0, 150, 255)
         end
     end
@@ -332,23 +360,23 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
             aimingF = false
             lockedTargetClose = nil
             panelClose.Visible = false
-            if not aimingRight then
+            if not aimingRight and Config.ShowFOV then
                 circle.Color = Color3.fromRGB(0, 150, 255)
             end
-            print("❌ Modo Mais Próximo desativado")
         else
             aimingF = true
+            aimingRight = false  -- Desativa o FOV se ativar o Mais Próximo
             local target, dist = FindClosestTarget()
             if target then
                 lockedTargetClose = target
                 AimAt(lockedTargetClose)
                 UpdatePanelClose(lockedTargetClose, dist)
-                circle.Color = Color3.fromRGB(0, 255, 100)
-                print("🔒 Travado no mais próximo:", target.Name)
+                if Config.ShowFOV then
+                    circle.Color = Color3.fromRGB(0, 255, 100)
+                end
             else
                 lockedTargetClose = nil
                 panelClose.Visible = false
-                print("❌ Nenhum alvo próximo encontrado")
             end
         end
     end
@@ -357,8 +385,15 @@ end)
 -- ========== LOOP PRINCIPAL ==========
 RunService.RenderStepped:Connect(function()
     screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    circle.Position = screenCenter
-    circle.Radius = Config.FOV
+    
+    -- Atualiza círculo do FOV
+    if Config.ShowFOV then
+        circle.Position = screenCenter
+        circle.Radius = Config.FOV
+        circle.Visible = Config.Enabled
+    else
+        circle.Visible = false
+    end
     
     if not Config.Enabled then return end
     
@@ -372,7 +407,9 @@ RunService.RenderStepped:Connect(function()
                 local targetPart = GetTargetPart(lockedTargetFOV.Character)
                 if targetPart then
                     local dist = (root.Position - targetPart.Position).Magnitude
-                    distFOV.Text = "📏 " .. string.format("%.1f", dist) .. " metros"
+                    if Config.ShowPanels then
+                        distFOV.Text = "📏 " .. string.format("%.1f", dist) .. " metros"
+                    end
                 end
             end
         elseif lockedTargetFOV and not IsTargetValid(lockedTargetFOV) then
@@ -400,7 +437,9 @@ RunService.RenderStepped:Connect(function()
                 local targetPart = GetTargetPart(lockedTargetClose.Character)
                 if targetPart then
                     local dist = (root.Position - targetPart.Position).Magnitude
-                    distClose.Text = "📏 " .. string.format("%.1f", dist) .. " metros"
+                    if Config.ShowPanels then
+                        distClose.Text = "📏 " .. string.format("%.1f", dist) .. " metros"
+                    end
                 end
             end
         elseif lockedTargetClose and not IsTargetValid(lockedTargetClose) then
@@ -417,18 +456,34 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== INTEGRAÇÃO COM A BIBLIOTECA GUI (TUDO DENTRO DO MESMO MÓDULO) ==========
--- Cria categoria COMBAT
+-- ========== LIMPEZA ==========
+local function Cleanup()
+    print("🧹 Removendo aimbot...")
+    
+    Config.Enabled = false
+    aimingRight = false
+    aimingF = false
+    lockedTargetFOV = nil
+    lockedTargetClose = nil
+    
+    ContextActionService:UnbindAction("AimbotRight")
+    
+    if circle then circle:Remove() end
+    if screenGui then screenGui:Destroy() end
+    
+    print("✅ Aimbot completamente removido!")
+end
+
+-- ========== INTEGRAÇÃO COM A BIBLIOTECA GUI ==========
 local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
 
--- Módulo principal do Aimbot (Toggle) COM AS CONFIGURAÇÕES DENTRO
+-- Módulo principal
 local Aimbot = Combat:AddModule("🎯 Aimbot", function(state)
     Config.Enabled = state
     
     if Config.Enabled then
-        circle.Visible = true
+        if Config.ShowFOV then circle.Visible = true end
         ContextActionService:BindActionAtPriority("AimbotRight", onRightClick, false, 1000, Enum.UserInputType.MouseButton2)
-        print("✅ Aimbot ativado! Botão direito = FOV | Tecla F = Mais próximo")
     else
         circle.Visible = false
         aimingRight = false
@@ -438,11 +493,10 @@ local Aimbot = Combat:AddModule("🎯 Aimbot", function(state)
         panelFOV.Visible = false
         panelClose.Visible = false
         ContextActionService:UnbindAction("AimbotRight")
-        print("❌ Aimbot desativado")
     end
 end, false)
 
--- CONFIGURAÇÕES DENTRO DO MESMO MÓDULO (sub-opções)
+-- Configurações
 Aimbot:AddSlider("🔵 Raio do FOV", 50, 400, Config.FOV, function(value)
     Config.FOV = value
     if circle then circle.Radius = value end
@@ -456,4 +510,35 @@ Aimbot:AddToggle("👥 Verificar Time", Config.TeamCheck, function(state)
     Config.TeamCheck = state
 end)
 
-print("✅ Módulo Aimbot carregado! Pressione INSERT para abrir o menu")
+-- NOVAS SUB-OPÇÕES
+Aimbot:AddToggle("👁️ Mostrar Círculo FOV", Config.ShowFOV, function(state)
+    Config.ShowFOV = state
+    if not Config.Enabled then return end
+    circle.Visible = state
+    if state then
+        circle.Color = aimingRight and Color3.fromRGB(0, 255, 0) or (aimingF and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 150, 255))
+    end
+end)
+
+Aimbot:AddToggle("📊 Mostrar Painéis", Config.ShowPanels, function(state)
+    Config.ShowPanels = state
+    if not state then
+        panelFOV.Visible = false
+        panelClose.Visible = false
+    elseif Config.Enabled then
+        if lockedTargetFOV then UpdatePanelFOV(lockedTargetFOV) end
+        if lockedTargetClose then UpdatePanelClose(lockedTargetClose) end
+    end
+end)
+
+-- Botão de remover completo
+Aimbot:AddModule("🗑️ Remover Script", function()
+    Cleanup()
+    local guiLib = LocalPlayer.PlayerGui:FindFirstChild("ManusGuiLib")
+    if guiLib then guiLib:Destroy() end
+end, true)
+
+print("✅ Aimbot carregado! Pressione INSERT para abrir o menu")
+
+-- Retorna a função de limpeza
+return Cleanup
