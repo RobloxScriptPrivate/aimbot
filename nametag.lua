@@ -1,4 +1,4 @@
--- ========== NAMETAG (Nome + Vida + Distância em Português) ==========
+-- ========== NAMETAG (Nome + Vida + Distância em Português) V2 ==========
 local Library = ...
 local Visual = select(2, ...)
 
@@ -26,48 +26,42 @@ local Config = {
 
 -- VARIÁVEIS
 local nametags = {}
+local localCharacter = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+-- Atualiza a referência do personagem local ao renascer
+LocalPlayer.CharacterAdded:Connect(function(character)
+    localCharacter = character
+end)
 
 local function GetTeamColor(player)
-    if not Config.TeamCheck then
-        return Color3.fromRGB(255, 255, 255)
-    end
-    
-    if not player.Team or not LocalPlayer.Team then
-        return Color3.fromRGB(200, 200, 200)
+    if not Config.TeamCheck or not player.Team or not LocalPlayer.Team then
+        return Color3.fromRGB(255, 255, 255) -- Branco se a checagem estiver desativada ou times inválidos
     end
     
     if player.Team == LocalPlayer.Team then
-        return Color3.fromRGB(0, 255, 0)
+        return Color3.fromRGB(0, 255, 120) -- Verde para time aliado
     else
-        return Color3.fromRGB(255, 80, 80)
+        return Color3.fromRGB(255, 80, 80) -- Vermelho para time inimigo
     end
 end
 
 local function GetHealthColor(percent)
-    if percent > 60 then
-        return Color3.fromRGB(0, 255, 0)
-    elseif percent > 30 then
-        return Color3.fromRGB(255, 255, 0)
-    else
-        return Color3.fromRGB(255, 0, 0)
-    end
+    return Color3.fromHSV(0.33 * (percent / 100), 1, 1) -- Gradiente de verde para vermelho
 end
 
 local function IsValidTarget(player)
-    if player == LocalPlayer then return false end
+    if not player or not player:IsA("Player") or player == LocalPlayer then return false end
     local character = player.Character
     if not character then return false end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     return humanoid and humanoid.Health > 0
 end
 
-local function UpdateNametag(player)
-    local character = player.Character
-    if not character then return end
-    
+local function UpdateNametag(player, character, humanoid)
     local head = character:FindFirstChild("Head")
     if not head then return end
     
+    -- Posição do Nametag
     local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.5, 0))
     if not onScreen or screenPos.Z <= 0 then
         if nametags[player] then
@@ -76,80 +70,89 @@ local function UpdateNametag(player)
         return
     end
     
+    -- Cria se não existir
     if not nametags[player] then
-        nametags[player] = Drawing.new("Text")
-        nametags[player].Size = Config.TextSize
-        nametags[player].Center = true
-        nametags[player].Outline = true
-        nametags[player].Font = 2
-        nametags[player].Visible = true
+        local newTag = Drawing.new("Text")
+        newTag.Center = true
+        newTag.Outline = true
+        newTag.Font = 2
+        nametags[player] = newTag
     end
     
-    local texts = {}
+    local tag = nametags[player]
+    tag.Size = Config.TextSize
+    tag.Visible = true
     
+    -- Monta o texto
+    local texts = {}
     if Config.ShowName then
         table.insert(texts, player.Name)
     end
     
     if Config.ShowHealth then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        local health = humanoid and math.floor(humanoid.Health) or 0
+        local health = math.floor(humanoid.Health)
         table.insert(texts, string.format("❤️ %d", health))
-        
-        local maxHealth = humanoid and humanoid.MaxHealth or 100
-        local percent = (health / maxHealth) * 100
-        nametags[player].Color = GetHealthColor(percent)
+        tag.Color = GetHealthColor( (health / humanoid.MaxHealth) * 100 )
     else
-        nametags[player].Color = GetTeamColor(player)
+        tag.Color = GetTeamColor(player)
     end
     
     if Config.ShowDistance then
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root and character:FindFirstChild("HumanoidRootPart") then
-            local distance = (root.Position - character.HumanoidRootPart.Position).Magnitude
-            table.insert(texts, string.format("📏 %.1fm", distance))
+        local localRoot = localCharacter and localCharacter:FindFirstChild("HumanoidRootPart")
+        local targetRoot = character:FindFirstChild("HumanoidRootPart")
+        if localRoot and targetRoot then
+            local distance = (localRoot.Position - targetRoot.Position).Magnitude
+            table.insert(texts, string.format("📏 %.0fm", distance))
         end
     end
     
-    nametags[player].Text = table.concat(texts, "  |  ")
-    nametags[player].Position = Vector2.new(screenPos.X, screenPos.Y - 20)
+    tag.Text = table.concat(texts, " | ")
+    tag.Position = Vector2.new(screenPos.X, screenPos.Y)
 end
 
 local function ClearNametags()
-    for player, text in pairs(nametags) do
-        text:Remove()
+    for player, tag in pairs(nametags) do
+        if tag then tag:Remove() end
     end
     nametags = {}
 end
 
-RunService.RenderStepped:Connect(function()
-    if not Config.Enabled then
-        ClearNametags()
-        return
-    end
-    
-    for player in pairs(nametags) do
-        if not IsValidTarget(player) then
-            nametags[player]:Remove()
-            nametags[player] = nil
-        end
-    end
-    
-    for _, player in ipairs(Players:GetPlayers()) do
-        if IsValidTarget(player) then
-            UpdateNametag(player)
-        end
-    end
-end)
+-- Loop Principal
+local connection
+local function ToggleLoop(state)
+    if state and not connection then
+        connection = RunService.RenderStepped:Connect(function()
+            -- Limpa tags de jogadores que saíram
+            for player, tag in pairs(nametags) do
+                if not player or not player.Parent then
+                    tag:Remove()
+                    nametags[player] = nil
+                end
+            end
 
-local function Cleanup()
-    ClearNametags()
+            -- Atualiza tags de jogadores válidos
+            for _, player in ipairs(Players:GetPlayers()) do
+                if IsValidTarget(player) then
+                    UpdateNametag(player, player.Character, player.Character:FindFirstChildOfClass("Humanoid"))
+                else
+                    -- Esconde tag se o alvo se tornou inválido (ex: morreu)
+                    if nametags[player] then
+                        nametags[player].Visible = false
+                    end
+                end
+            end
+        end)
+    elseif not state and connection then
+        connection:Disconnect()
+        connection = nil
+        ClearNametags()
+    end
 end
 
 -- ========== ADICIONA O MÓDULO À CATEGORIA VISUAL ==========
 local Nametag = Visual:AddModule("🏷️ Nametags", function(state)
     Config.Enabled = state
-    if not state then ClearNametags() end
+    ToggleLoop(state)
 end, false)
 
 Nametag:AddToggle("👥 Mostrar por Time", Config.TeamCheck, function(state)
@@ -170,11 +173,11 @@ end)
 
 Nametag:AddSlider("📏 Tamanho do Texto", 10, 20, Config.TextSize, function(value)
     Config.TextSize = value
-    for _, text in pairs(nametags) do
-        text.Size = value
-    end
 end)
 
-print("✅ Nametag carregado!")
+print("✅ Nametag V2 carregado!")
 
-return Cleanup
+-- Função de limpeza ao remover o script
+return function()
+    ToggleLoop(false)
+end
