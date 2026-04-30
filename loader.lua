@@ -1,82 +1,115 @@
--- ========== LOADER PRINCIPAL (100% REMOTO) ==========
-print("🔧 Iniciando carregamento remoto v7 (com anti-cache)...")
+-- ========== LOADER PRINCIPAL (v8 - MODO DE DIAGNÓSTICO) ==========
+print("🔧 Iniciando carregamento remoto v8 (MODO DE DIAGNÓSTICO). Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
--- Função para buscar e carregar código da URL, com sistema anti-cache
+-- Função para buscar e carregar código da URL, com sistema anti-cache agressivo e logs detalhados
 local function fetch(file)
-    -- Adicionar um parâmetro de tempo aleatório quebra o cache do Roblox
-    local url = BASE_URL .. file .. "?t=" .. tick()
-    local success, content = pcall(function() return game:HttpGet(url) end)
-    if success and content then
-        print("✅ Conteúdo de '"..file.."' baixado (sem cache).")
+    -- Anti-cache extremamente agressivo para garantir um novo download sempre
+    local cache_buster = "?v=" .. os.time() .. "&r=" .. math.random(1, 1000000)
+    local url = BASE_URL .. file .. cache_buster
+    
+    print("⚡ Baixando de: " .. url) 
+
+    local success, content = pcall(function() 
+        -- O segundo argumento 'true' tenta forçar a invalidação do cache
+        return game:HttpGet(url, true) 
+    end)
+    
+    if success and content and #content > 0 then
+        print("✅ Download de '"..file.."' bem-sucedido.")
         return content
     else
-        print("❌ Falha ao baixar '"..file.."' da URL: " .. url)
+        print("🔥🔥 FALHA CRÍTICA NO DOWNLOAD de '"..file.."' 🔥🔥. O script pode não funcionar. Erro: " .. tostring(content))
         return nil
     end
 end
 
--- Carrega a biblioteca GUI
+-- Etapa 1: Carregar a biblioteca GUI
+print("\n--- Etapa 1: Carregando GUI ---")
 local gui_code = fetch("gui.lua")
 if not gui_code then
-    print("❌ ERRO CRÍTICO: Não foi possível carregar a GUI. O script não pode continuar.")
+    warn("❌ ERRO FATAL: A biblioteca da GUI não pôde ser baixada. O script não pode continuar.")
     return
 end
+
 local Library = loadstring(gui_code)()
-print("✅ Biblioteca GUI carregada.")
+if not Library then
+    warn("❌ ERRO FATAL: A biblioteca da GUI falhou ao executar. O script não pode continuar.")
+    return
+end
+print("✅ Biblioteca GUI carregada e executada.")
 
-task.wait(0.5)
 
--- CRIA AS CATEGORIAS UMA ÚNICA VEZ
-local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
-local Visual = Library:CreateCategory("👁️ Visual", UDim2.new(0, 10, 0, 100))
-local Movement = Library:CreateCategory("🏃 Movimento", UDim2.new(0, 10, 0, 140))
-local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, 10, 0, 180))
-print("✅ Categorias criadas.")
-
+-- Etapa 2: Criar as categorias
+print("\n--- Etapa 2: Criando Categorias ---")
 task.wait(0.2)
+local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
+print("➡️ Categoria Combat criada.")
+local Visual = Library:CreateCategory("👁️ Visual", UDim2.new(0, 10, 0, 100))
+print("➡️ Categoria Visual criada.")
+local Movement = Library:CreateCategory("🏃 Movimento", UDim2.new(0, 10, 0, 140))
+print("➡️ Categoria Movement criada.")
+local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, 10, 0, 180))
+print("➡️ Categoria Teleport criada.")
+print("✅ Todas as categorias processadas.")
 
--- Carrega os módulos (passando as categorias corretamente)
+
+-- Etapa 3: Carregar os Módulos
+print("\n--- Etapa 3: Carregando Módulos ---")
+task.wait(0.2)
 local function LoadModule(filename, category)
+    print("\n🔧 Carregando Módulo: '"..filename.."'...")
+    if not category then
+        warn("🔥🔥 ERRO: A categoria para '"..filename.."' é NULA. O módulo não será carregado. 🔥🔥")
+        return function() end
+    end
+
     local code = fetch(filename)
     if code then
-        local func = loadstring(code)
+        local func, compile_err = loadstring(code)
         if func then
-            print("🔧 Carregando módulo: "..filename)
-            local success, cleanupFunc = pcall(func, Library, category)
+            -- Usando pcall para capturar erros DENTRO do módulo
+            local success, result = pcall(func, Library, category)
             if success then
-                print("✅ Módulo '"..filename.."' carregado com sucesso.")
-                return cleanupFunc
+                print("✅ Módulo '"..filename.."' executado com sucesso.")
+                return result -- Retorna a função de limpeza
             else
-                print("❌ Erro ao executar o módulo '"..filename.."':", cleanupFunc)
+                warn("🔥🔥 ERRO AO EXECUTAR o módulo '"..filename.."' 🔥🔥")
+                warn("🔴 O erro é: ", result)
+                warn("🔴 O script pode estar instável.")
             end
+        else
+            warn("🔥🔥 ERRO DE SINTAXE no arquivo '"..filename.."' 🔥🔥")
+            warn("🔴 O erro de compilação é: ", compile_err)
         end
     end
     return function() print("Cleanup vazio para módulo falho:", filename) end
 end
 
--- Carrega os módulos
-local cleanupAimbot = LoadModule("aimbot.lua", Combat)
-local cleanupESP = LoadModule("esp.lua", Visual)
-local cleanupNametag = LoadModule("nametag.lua", Visual)
-local cleanupMovement = LoadModule("movement.lua", Movement)
-local cleanupTeleport = LoadModule("teleport.lua", Teleport)
-local cleanupFreecam = LoadModule("freecam.lua", Movement)
+-- Carrega todos os módulos com log detalhado
+local cleanupFuncs = {}
+cleanupFuncs.aimbot = LoadModule("aimbot.lua", Combat)
+cleanupFuncs.esp = LoadModule("esp.lua", Visual)
+cleanupFuncs.nametag = LoadModule("nametag.lua", Visual)
+cleanupFuncs.movement = LoadModule("movement.lua", Movement)
+cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
+cleanupFuncs.freecam = LoadModule("freecam.lua", Movement)
 
--- Função de limpeza completa
+
+-- Etapa 4: Configurar Limpeza Geral
+print("\n--- Etapa 4: Configurando Limpeza Geral ---")
 local function FullCleanup()
     print("🧹 Removendo todos os módulos...")
-    if cleanupAimbot and type(cleanupAimbot) == 'function' then cleanupAimbot() end
-    if cleanupESP and type(cleanupESP) == 'function' then cleanupESP() end
-    if cleanupNametag and type(cleanupNametag) == 'function' then cleanupNametag() end
-    if cleanupMovement and type(cleanupMovement) == 'function' then cleanupMovement() end
-    if cleanupTeleport and type(cleanupTeleport) == 'function' then cleanupTeleport() end
-    if cleanupFreecam and type(cleanupFreecam) == 'function' then cleanupFreecam() end
+    for name, cleanup in pairs(cleanupFuncs) do
+        if type(cleanup) == 'function' then
+            pcall(cleanup)
+            print("🧼 Módulo '"..name.."' limpo.")
+        end
+    end
     print("✅ Todos os módulos removidos!")
 end
 
--- Tecla K para remover tudo
 Library:AddKeybind("Remover Script", Enum.KeyCode.K, function(key, pressed)
     if pressed then
         FullCleanup()
@@ -85,5 +118,8 @@ Library:AddKeybind("Remover Script", Enum.KeyCode.K, function(key, pressed)
         print("✅ Script completamente removido!")
     end
 end)
+print("✅ Keybind de remoção configurado.")
 
-print("\n✅ TODOS OS MÓDULOS CARREGADOS!\n👉 Pressione INSERT para abrir o menu")
+
+print("\n\n🎉🎉 DIAGNÓSTICO FINALIZADO. Se as categorias não apareceram, por favor, envie uma imagem do console (F9) para análise. 🎉🎉")
+print("👉 Pressione INSERT para abrir o menu.")
