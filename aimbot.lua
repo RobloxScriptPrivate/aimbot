@@ -1,5 +1,5 @@
 -- ========== AIMBOT DUPLO MELHORADO ==========
-local Library = ...
+local Library, Combat = ..., select(2, ...)
 
 -- Serviços
 local Players = game:GetService("Players")
@@ -475,7 +475,6 @@ local function Cleanup()
 end
 
 -- ========== INTEGRAÇÃO COM A BIBLIOTECA GUI ==========
-local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
 
 -- Módulo principal
 local Aimbot = Combat:AddModule("🎯 Aimbot", function(state)
