@@ -1,4 +1,4 @@
--- Manus GUI Library V5.1 (Fix AddKeybind & Scrolling)
+-- Manus GUI Library V5.6 (Fixed Method Registration)
 local Library = {}
 
 -- Serviços
@@ -22,7 +22,7 @@ Library.Whitelist = {}
 Library.AllyColors = {}
 
 --[[
-    Sistema de Keybinds (DEFINIDO NO INÍCIO PARA EVITAR ERROS)
+    1. REGISTRO DE MÉTODOS (DEVE VIR ANTES DE QUALQUER CHAMADA)
 ]]
 function Library:AddKeybind(text, defaultKey, callback)
     local key = defaultKey
@@ -36,9 +36,6 @@ function Library:AddKeybind(text, defaultKey, callback)
     }
 end
 
---[[
-    Sistema de Persistência (JSON)
-]]
 function Library:SaveConfig(name, data)
     if writefile then
         pcall(function()
@@ -69,10 +66,10 @@ function Library:ToggleWhitelist(player)
 end
 
 --[[
-    Inicialização da GUI Principal
+    2. INICIALIZAÇÃO DA GUI
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V5_1"
+ScreenGui.Name = "ManusGuiLib_V5_6"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -87,7 +84,7 @@ MainFrame.Visible = true
 MainFrame.Parent = ScreenGui
 
 --[[
-    Funções Utilitárias
+    3. FUNÇÕES UTILITÁRIAS
 ]]
 local function makeDraggable(frame, dragHandle)
     local dragging, dragInput, dragStart, startPos
@@ -113,7 +110,7 @@ local function makeDraggable(frame, dragHandle)
 end
 
 --[[
-    API de Overlay (Painéis de Alvo/Status)
+    4. API DE OVERLAY
 ]]
 function Library:CreateOverlay(id, title, color)
     if Library.Overlays[id] then return Library.Overlays[id] end
@@ -217,7 +214,7 @@ function Library:CreateOverlay(id, title, color)
 end
 
 --[[
-    API de Janelas (CreateWindow)
+    5. API DE JANELAS
 ]]
 function Library:CreateWindow(title, size, position)
     if Library.ActiveWindows[title] and Library.ActiveWindows[title].Frame.Parent then
@@ -310,7 +307,7 @@ function Library:CreateWindow(title, size, position)
 end
 
 --[[
-    Sistema de Categorias e Módulos
+    6. SISTEMA DE CATEGORIAS E MÓDULOS
 ]]
 function Library:CreateCategory(name, position)
     local CategoryFrame = Instance.new("Frame")
@@ -374,7 +371,6 @@ function Library:CreateCategory(name, position)
         ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left
         ModuleBtn.Parent = ModuleContainer
 
-        -- SUBFRAME COM SCROLLING
         local SubFrame = Instance.new("ScrollingFrame")
         SubFrame.Size = UDim2.new(1, 0, 0, 0)
         SubFrame.Position = UDim2.new(0, 0, 0, 25)
@@ -433,7 +429,6 @@ function Library:CreateCategory(name, position)
         ModuleBtn.MouseButton1Click:Connect(function() moduleObj:Execute() end)
         ModuleBtn.MouseButton2Click:Connect(function() moduleObj:ToggleSub() end)
 
-        -- API de Subcontroles
         function moduleObj:AddToggle(text, default, subCallback)
             local state = default or false
             local ToggleFrame = Instance.new("Frame")
@@ -566,7 +561,9 @@ function Library:CreateCategory(name, position)
     return categoryObj
 end
 
--- Keybinds Iniciais Globais (Configurados após a definição dos métodos)
+--[[
+    7. CHAMADAS FINAIS (SÓ APÓS TUDO ESTAR DEFINIDO)
+]]
 Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
     if pressed then MainFrame.Visible = not MainFrame.Visible end
 end)
