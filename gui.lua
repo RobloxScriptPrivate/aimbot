@@ -1,142 +1,344 @@
--- Manus GUI Library V8.1 (Window System Restored)
+-- Manus GUI Library V6.5 (Textbox & Font Fix)
 local Library = {}
 
--- Services
+-- Serviços
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
 
--- GUI setup
-local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V8.1_FINAL"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling; ScreenGui.Parent = CoreGui
-local MainFrame = Instance.new("Frame"); MainFrame.Name = "MainFrame"; MainFrame.Size = UDim2.new(1, 0, 1, 0); MainFrame.BackgroundTransparency = 1; MainFrame.Parent = ScreenGui
-local guiOpen = true
+-- Variáveis Locais
+local player = Players.LocalPlayer
 
-local function makeDraggable(frame, dragHandle)
-    local dragging, dragStart, startPos
-    dragHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging, dragStart, startPos = true, input.Position, frame.Position
-            local conn; conn = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false; conn:Disconnect() end
-            end)
+-- Configurações da Biblioteca
+Library.OpenKey = Enum.KeyCode.Insert
+Library.RemoveKey = Enum.KeyCode.K
+Library.Categories = {}
+Library.ActiveWindows = {}
+Library.Overlays = {}
+Library.Whitelist = {}
+
+--[[
+    1. MÉTODOS DE CONFIGURAÇÃO (CORREÇÃO PARA TELEPORT)
+]]
+function Library:SaveConfig(name, data)
+    if writefile then
+        pcall(function()
+            writefile(name .. ".json", HttpService:JSONEncode(data))
+        end)
+    end
+end
+
+function Library:LoadConfig(name)
+    if readfile and isfile and isfile(name .. ".json") then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(name .. ".json"))
+        end)
+        if success then return result end
+    end
+    return nil
+end
+
+function Library:AddKeybind(text, defaultKey, callback)
+    local key = defaultKey
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == key then
+            if callback then callback(key, true) end
         end
     end)
+    return { SetKey = function(newKey) key = newKey end }
+end
+
+function Library:IsWhitelisted(playerObj)
+    if not playerObj then return false end
+    return Library.Whitelist[playerObj.UserId] or false
+end
+
+function Library:ToggleWhitelist(playerObj)
+    if not playerObj then return end
+    Library.Whitelist[playerObj.UserId] = not Library.Whitelist[playerObj.UserId]
+    return Library.Whitelist[playerObj.UserId]
+end
+
+--[[
+    2. INICIALIZAÇÃO DA GUI
+]]
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ManusGuiLib_V6_5"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+if not pcall(function() ScreenGui.Parent = CoreGui end) then
+    ScreenGui.Parent = player:WaitForChild("PlayerGui")
+end
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(1, 0, 1, 0)
+MainFrame.BackgroundTransparency = 1
+MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
+
+-- BARRA SUPERIOR FIXA
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(0, 500, 0, 35)
+TopBar.Position = UDim2.new(0.5, -250, 0, 15)
+TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 4)
+
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(0, 200, 0, 24)
+SearchBox.Position = UDim2.new(0.5, -100, 0.5, -12)
+SearchBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+SearchBox.PlaceholderText = "Pesquisar módulos..."
+SearchBox.Text = ""
+SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchBox.Font = Enum.Font.SourceSans
+SearchBox.TextSize = 14
+SearchBox.Parent = TopBar
+Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
+
+local SettingsBtn = Instance.new("TextButton")
+SettingsBtn.Size = UDim2.new(0, 80, 0, 24)
+SettingsBtn.Position = UDim2.new(1, -90, 0.5, -12)
+SettingsBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SettingsBtn.Text = "⚙️ Configs"
+SettingsBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+SettingsBtn.Font = Enum.Font.SourceSansBold
+SettingsBtn.TextSize = 13
+SettingsBtn.Parent = TopBar
+Instance.new("UICorner", SettingsBtn).CornerRadius = UDim.new(0, 4)
+
+--[[
+    3. FUNÇÕES UTILITÁRIAS
+]]
+local function makeDraggable(frame, dragHandle)
+    local dragging, dragInput, dragStart, startPos
+    dragHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true; dragStart = input.Position; startPos = frame.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    dragHandle.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end end)
     UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+        if input == dragInput and dragging then
             local delta = input.Position - dragStart
             frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 end
 
-UserInputService.InputBegan:Connect(function(input, processed) if not processed and input.KeyCode == Enum.KeyCode.Insert then guiOpen = not guiOpen; MainFrame.Visible = guiOpen end end)
+--[[
+    4. JANELA DE WHITELIST (CORRIGIDA)
+]]
+function Library:OpenWhitelistWindow()
+    local window = Library:CreateWindow("🛡️ Whitelist de Jogadores", UDim2.new(0, 400, 0, 350))
+    local content = window.Content
+    local currentTab = "Marcador"
+    local searchQuery = ""
 
--- ==================== WINDOW SYSTEM (RESTORED) ====================
-function Library:CreateWindow(title, size)
+    local WinSearch = Instance.new("TextBox")
+    WinSearch.Size = UDim2.new(0.9, 0, 0, 28)
+    WinSearch.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    WinSearch.PlaceholderText = "Pesquisar jogador..."
+    WinSearch.Text = ""; WinSearch.TextColor3 = Color3.fromRGB(255, 255, 255); WinSearch.Font = Enum.Font.SourceSans; WinSearch.TextSize = 14; WinSearch.Parent = content; Instance.new("UICorner", WinSearch)
+
+    local TabFrame = Instance.new("Frame")
+    TabFrame.Size = UDim2.new(0.9, 0, 0, 35); TabFrame.BackgroundTransparency = 1; TabFrame.Parent = content
+    local Btn1 = Instance.new("TextButton")
+    Btn1.Size = UDim2.new(0.5, -5, 1, 0); Btn1.BackgroundColor3 = Color3.fromRGB(0, 150, 255); Btn1.Text = "Marcador"; Btn1.TextColor3 = Color3.fromRGB(255, 255, 255); Btn1.Font = Enum.Font.SourceSansBold; Btn1.TextSize = 16; Btn1.Parent = TabFrame; Instance.new("UICorner", Btn1)
+    local Btn2 = Instance.new("TextButton")
+    Btn2.Size = UDim2.new(0.5, -5, 1, 0); Btn2.Position = UDim2.new(0.5, 5, 0, 0); Btn2.BackgroundColor3 = Color3.fromRGB(45, 45, 45); Btn2.Text = "Marcados"; Btn2.TextColor3 = Color3.fromRGB(200, 200, 200); Btn2.Font = Enum.Font.SourceSansBold; Btn2.TextSize = 16; Btn2.Parent = TabFrame; Instance.new("UICorner", Btn2)
+
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Size = UDim2.new(0.95, 0, 1, -110); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 3; Scroll.Parent = content
+    local listLayout = Instance.new("UIListLayout", Scroll); listLayout.Padding = UDim.new(0, 5); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    local function refresh()
+        for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p == player then continue end
+            local isW = Library:IsWhitelisted(p)
+            local match = string.find(string.lower(p.DisplayName), string.lower(searchQuery)) or string.find(string.lower(p.Name), string.lower(searchQuery))
+            local show = (currentTab == "Marcador" and match) or (currentTab == "Marcados" and isW and match)
+            if show then
+                local b = Instance.new("TextButton")
+                b.Size = UDim2.new(0.95, 0, 0, 32); b.BackgroundColor3 = isW and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(50, 50, 50); b.Text = (isW and "[WL] " or "") .. p.DisplayName; b.TextColor3 = Color3.fromRGB(255, 255, 255); b.Font = Enum.Font.SourceSans; b.TextSize = 14; b.Parent = Scroll; Instance.new("UICorner", b)
+                b.MouseButton1Click:Connect(function() Library:ToggleWhitelist(p); refresh() end)
+            end
+        end
+        Scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 5)
+    end
+    Btn1.MouseButton1Click:Connect(function() currentTab = "Marcador"; Btn1.BackgroundColor3 = Color3.fromRGB(0, 150, 255); Btn2.BackgroundColor3 = Color3.fromRGB(45, 45, 45); refresh() end)
+    Btn2.MouseButton1Click:Connect(function() currentTab = "Marcados"; Btn2.BackgroundColor3 = Color3.fromRGB(0, 150, 255); Btn1.BackgroundColor3 = Color3.fromRGB(45, 45, 45); refresh() end)
+    WinSearch:GetPropertyChangedSignal("Text"):Connect(function() searchQuery = WinSearch.Text; refresh() end)
+    refresh()
+end
+
+--[[
+    5. API DE JANELAS E CATEGORIAS (VISUAL ORIGINAL ESTRITO)
+]]
+function Library:CreateWindow(title, size, position)
+    if Library.ActiveWindows[title] and Library.ActiveWindows[title].Frame.Parent then Library.ActiveWindows[title].Frame:Destroy() end
     local windowObj = {}
-    local windowFrame = Instance.new("Frame"); windowFrame.Size = size or UDim2.new(0, 300, 0, 200); windowFrame.Position = UDim2.new(0.5, -windowFrame.Size.X.Offset / 2, 0.5, -windowFrame.Size.Y.Offset / 2); windowFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); windowFrame.BorderSizePixel = 0; windowFrame.Parent = MainFrame; windowObj.Frame = windowFrame
-    local titleBar = Instance.new("Frame"); titleBar.Size = UDim2.new(1, 0, 0, 25); titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25); titleBar.Parent = windowFrame
-    local titleLabel = Instance.new("TextLabel", titleBar); titleLabel.Size = UDim2.new(1, -30, 1, 0); titleLabel.Text = title; titleLabel.Font = Enum.Font.SourceSansBold; titleLabel.TextColor3 = Color3.fromRGB(220, 220, 220); titleLabel.TextSize = 14; titleLabel.Position = UDim2.new(0, 10, 0, 0)
-    local closeBtn = Instance.new("TextButton", titleBar); closeBtn.Size = UDim2.new(0, 20, 0, 20); closeBtn.Position = UDim2.new(1, -25, 0.5, -10); closeBtn.Text = "X"; closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80); closeBtn.MouseButton1Click:Connect(function() windowFrame:Destroy() end)
-    local contentFrame = Instance.new("Frame"); contentFrame.Size = UDim2.new(1, 0, 1, -25); contentFrame.Position = UDim2.new(0, 0, 0, 25); contentFrame.BackgroundTransparency = 1; contentFrame.Parent = windowFrame
-    local listLayout = Instance.new("UIListLayout", contentFrame); listLayout.Padding = UDim.new(0, 8)
-
-    makeDraggable(windowFrame, titleBar)
-
+    local WindowFrame = Instance.new("Frame")
+    WindowFrame.Name = title; WindowFrame.Size = size or UDim2.new(0, 350, 0, 250); WindowFrame.Position = position or UDim2.new(0.5, -175, 0.5, -125); WindowFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30); WindowFrame.BorderSizePixel = 0; WindowFrame.Visible = true; Instance.new("UICorner", WindowFrame).CornerRadius = UDim.new(0, 5)
+    local TitleBar = Instance.new("TextLabel")
+    TitleBar.Size = UDim2.new(1, 0, 0, 35); TitleBar.Text = "  " .. title; TitleBar.TextColor3 = Color3.fromRGB(255, 255, 255); TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40); TitleBar.Font = Enum.Font.SourceSansBold; TitleBar.TextSize = 16; TitleBar.TextXAlignment = Enum.TextXAlignment.Left; TitleBar.Parent = WindowFrame
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 35, 1, 0); CloseButton.Position = UDim2.new(1, -35, 0, 0); CloseButton.Text = "X"; CloseButton.TextColor3 = Color3.fromRGB(255, 80, 80); CloseButton.BackgroundTransparency = 1; CloseButton.TextSize = 18; CloseButton.Parent = TitleBar
+    CloseButton.MouseButton1Click:Connect(function() WindowFrame:Destroy() end)
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Size = UDim2.new(1, 0, 1, -35); ContentFrame.Position = UDim2.new(0, 0, 0, 35); ContentFrame.BackgroundTransparency = 1; ContentFrame.Parent = WindowFrame
+    local layout = Instance.new("UIListLayout", ContentFrame); layout.Padding = UDim.new(0, 8); layout.HorizontalAlignment = Enum.HorizontalAlignment.Center; Instance.new("UIPadding", ContentFrame).PaddingTop = UDim.new(0, 8)
+    windowObj.Frame = WindowFrame; windowObj.Content = ContentFrame; makeDraggable(WindowFrame, TitleBar); WindowFrame.Parent = MainFrame
+    function windowObj:AddButton(text, callback)
+        local b = Instance.new("TextButton"); b.Size = UDim2.new(0.9, 0, 0, 32); b.BackgroundColor3 = Color3.fromRGB(50, 50, 50); b.TextColor3 = Color3.fromRGB(220, 220, 220); b.Text = text; b.TextSize = 14; b.Font = Enum.Font.SourceSansBold; b.Parent = ContentFrame; Instance.new("UICorner", b)
+        b.MouseButton1Click:Connect(callback); return b
+    end
     function windowObj:AddTextBox(placeholder)
-        local box = Instance.new("TextBox"); box.Size = UDim2.new(1, -20, 0, 30); box.Position = UDim2.new(0.5, -box.Size.X.Offset/2, 0, 0); box.BackgroundColor3 = Color3.fromRGB(50, 50, 50); box.PlaceholderText = placeholder or ""; box.TextColor3 = Color3.fromRGB(200, 200, 200); box.Parent = contentFrame
-        return box
+        local tb = Instance.new("TextBox"); tb.Size = UDim2.new(0.9, 0, 0, 32); tb.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tb.TextColor3 = Color3.fromRGB(255, 255, 255); tb.PlaceholderText = placeholder or ""; tb.Text = ""; tb.TextSize = 14; tb.Font = Enum.Font.SourceSans; tb.Parent = ContentFrame; Instance.new("UICorner", tb)
+        return tb
     end
-
-    function windowObj:AddButton(text, cb)
-        local btn = Instance.new("TextButton"); btn.Size = UDim2.new(1, -20, 0, 30); btn.Position = UDim2.new(0.5, -btn.Size.X.Offset/2, 0, 0); btn.BackgroundColor3 = Color3.fromRGB(0, 120, 200); btn.Text = text; btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Parent = contentFrame
-        btn.MouseButton1Click:Connect(cb)
-    end
-
     return windowObj
 end
 
 function Library:CreateCategory(name, position)
-    local categoryObj = {}
-    
-    local CategoryFrame = Instance.new("Frame"); CategoryFrame.Name = name; CategoryFrame.Size = UDim2.new(0, 150, 0, 30); CategoryFrame.Position = position or UDim2.new(0,0,0,0); CategoryFrame.BackgroundColor3 = Color3.fromRGB(30,30,30); CategoryFrame.Parent = MainFrame
-    local Title = Instance.new("TextButton"); Title.Size = UDim2.new(1, 0, 1, 0); Title.Text = name; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.SourceSansBold; Title.TextSize = 16; Title.BackgroundColor3 = Color3.fromRGB(25, 25, 25); Title.Parent = CategoryFrame
-    local OptionsFrame = Instance.new("ScrollingFrame"); OptionsFrame.Size = UDim2.new(1, 0, 0, 250); OptionsFrame.Position = UDim2.new(0, 0, 1, 0); OptionsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40); OptionsFrame.BorderSizePixel = 0; OptionsFrame.Visible = false; OptionsFrame.ScrollBarThickness = 4; OptionsFrame.Parent = CategoryFrame
-    local UIListLayout = Instance.new("UIListLayout", OptionsFrame); UIListLayout.Padding = UDim.new(0, 5); UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
+    local CategoryFrame = Instance.new("Frame")
+    CategoryFrame.Name = name; CategoryFrame.Size = UDim2.new(0, 150, 0, 30); CategoryFrame.Position = position; CategoryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30); CategoryFrame.BorderSizePixel = 0; CategoryFrame.Parent = MainFrame
+    local Title = Instance.new("TextButton")
+    Title.Size = UDim2.new(1, 0, 1, 0); Title.Text = name; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.SourceSansBold; Title.TextSize = 16; Title.BackgroundTransparency = 1; Title.Parent = CategoryFrame
+    local OptionsFrame = Instance.new("Frame")
+    OptionsFrame.Size = UDim2.new(1, 0, 0, 0); OptionsFrame.Position = UDim2.new(0, 0, 1, 0); OptionsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40); OptionsFrame.BorderSizePixel = 0; OptionsFrame.ClipsDescendants = true; OptionsFrame.Parent = CategoryFrame
+    local UIListLayout = Instance.new("UIListLayout", OptionsFrame); UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
     makeDraggable(CategoryFrame, Title)
-
-    local expanded = false
-    Title.MouseButton1Click:Connect(function() expanded = not expanded; OptionsFrame.Visible = expanded end)
-
-    function categoryObj:AddModule(moduleName, callback, p3)
-        local opts = {}; if type(p3) == "table" then opts = p3 elseif type(p3) == "boolean" then opts.isTrigger = p3 end
-        local moduleObj = { Enabled = false, SubExpanded = false }
-
-        local ModuleContainer = Instance.new("Frame"); ModuleContainer.Name = moduleName.."_Container"; ModuleContainer.BackgroundTransparency = 1; ModuleContainer.Size = UDim2.new(1, 0, 0, 25); ModuleContainer.ClipsDescendants = true; ModuleContainer.Parent = OptionsFrame; ModuleContainer.LayoutOrder = opts.order or 1
-        local ModuleBtn = Instance.new("TextButton"); ModuleBtn.Name = moduleName; ModuleBtn.Size = UDim2.new(1, 0, 0, 25); ModuleBtn.BackgroundColor3 = Color3.fromRGB(45,45,45); ModuleBtn.Text = "  "..moduleName; ModuleBtn.TextColor3 = Color3.fromRGB(200,200,200); ModuleBtn.Font = Enum.Font.SourceSans; ModuleBtn.TextSize = 14; ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left; ModuleBtn.Parent = ModuleContainer
-        local SubFrame = Instance.new("Frame"); SubFrame.Name = "SubOptions"; SubFrame.BackgroundTransparency = 1; SubFrame.Size = UDim2.new(1,0,1,0); SubFrame.Position = UDim2.new(0,0,1,0); SubFrame.Visible = false; SubFrame.Parent = ModuleContainer
-        local subLayout = Instance.new("UIListLayout", SubFrame); subLayout.Padding = UDim.new(0, 3)
-
-        subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    local categoryObj = { Frame = CategoryFrame, Options = OptionsFrame, Expanded = true }
+    table.insert(Library.Categories, CategoryFrame)
+    
+    Title.MouseButton2Click:Connect(function()
+        categoryObj.Expanded = not categoryObj.Expanded
+        OptionsFrame.Visible = categoryObj.Expanded
+    end)
+    
+    function categoryObj:AddModule(moduleName, callback, isTrigger)
+        local moduleObj = { Enabled = false, IsTrigger = isTrigger or false, SubExpanded = false }
+        local ModuleContainer = Instance.new("Frame")
+        ModuleContainer.Size = UDim2.new(1, 0, 0, 25); ModuleContainer.BackgroundTransparency = 1; ModuleContainer.Parent = OptionsFrame
+        local ModuleBtn = Instance.new("TextButton")
+        ModuleBtn.Size = UDim2.new(1, 0, 0, 25); ModuleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); ModuleBtn.BorderSizePixel = 0; ModuleBtn.Text = "  " .. moduleName; ModuleBtn.TextColor3 = Color3.fromRGB(200, 200, 200); ModuleBtn.Font = Enum.Font.SourceSans; ModuleBtn.TextSize = 14; ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left; ModuleBtn.Parent = ModuleContainer
+        local SubFrame = Instance.new("ScrollingFrame")
+        SubFrame.Size = UDim2.new(1, 0, 0, 0); SubFrame.Position = UDim2.new(0, 0, 0, 25); SubFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); SubFrame.BorderSizePixel = 0; SubFrame.Visible = false; SubFrame.ScrollBarThickness = 2; SubFrame.Parent = ModuleContainer
+        local subLayout = Instance.new("UIListLayout", SubFrame); subLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        local function updateSizes()
             local contentHeight = subLayout.AbsoluteContentSize.Y
-            SubFrame.Size = UDim2.new(1, 0, 0, contentHeight)
-            ModuleContainer.Size = UDim2.new(1, 0, 0, 25 + (moduleObj.SubExpanded and contentHeight or 0))
-        end)
+            SubFrame.Size = SubFrame.Visible and UDim2.new(1, 0, 0, math.min(contentHeight, 150)) or UDim2.new(1, 0, 0, 0)
+            SubFrame.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
+            ModuleContainer.Size = UDim2.new(1, 0, 0, 25 + SubFrame.Size.Y.Offset)
+            local totalHeight = 0
+            for _, v in pairs(OptionsFrame:GetChildren()) do if v:IsA("Frame") then totalHeight = totalHeight + v.Size.Y.Offset end end
+            OptionsFrame.Size = UDim2.new(1, 0, 0, totalHeight)
+        end
+        updateSizes() -- FIX: Call once to set initial size
+        subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSizes)
         
-        ModuleBtn.MouseButton1Click:Connect(function() 
-            if opts.isTrigger then pcall(callback)
-            else
+        ModuleBtn.MouseButton1Click:Connect(function()
+            if moduleObj.IsTrigger then callback() else
                 moduleObj.Enabled = not moduleObj.Enabled
                 ModuleBtn.TextColor3 = moduleObj.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
-                pcall(callback, moduleObj.Enabled)
+                callback(moduleObj.Enabled)
             end
         end)
-
         ModuleBtn.MouseButton2Click:Connect(function()
             moduleObj.SubExpanded = not moduleObj.SubExpanded
             SubFrame.Visible = moduleObj.SubExpanded
-            local contentHeight = subLayout.AbsoluteContentSize.Y
-            ModuleContainer.Size = UDim2.new(1, 0, 0, 25 + (moduleObj.SubExpanded and contentHeight or 0))
+            updateSizes()
         end)
         
-        function moduleObj:Remove() ModuleContainer:Destroy() end
-
-        local function safeCall(cb, ...) if cb and type(cb) == "function" then pcall(cb, ...) end end
-
-        function moduleObj:AddButton(text, cb)
-            local btn = Instance.new("TextButton"); btn.Size = UDim2.new(1, -10, 0, 22); btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); btn.Font = Enum.Font.SourceSans; btn.TextSize = 13; btn.TextColor3 = Color3.fromRGB(220, 220, 220); btn.Text = text; btn.Parent = SubFrame; local corner = Instance.new("UICorner", btn); corner.CornerRadius = UDim.new(0, 3); btn.MouseButton1Click:Connect(function() safeCall(cb) end)
+        function moduleObj:AddToggle(t, d, c)
+            local s = d or false
+            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    " .. t; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); b.Font = Enum.Font.SourceSans; b.TextSize = 11; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 1; b.Parent = SubFrame
+            b.MouseButton1Click:Connect(function() s = not s; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); c(s) end)
         end
-
-        function moduleObj:AddToggle(text, default, cb)
-            local state = default or false; local frame = Instance.new("TextButton"); frame.Size = UDim2.new(1, -10, 0, 20); frame.BackgroundTransparency = 1; frame.Text = ""; frame.Parent = SubFrame
-            local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, -20, 1, 0); label.BackgroundTransparency = 1; label.Font = Enum.Font.SourceSans; label.TextSize = 13; label.TextColor3 = Color3.fromRGB(180, 180, 180); label.Text = " " .. text; label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
-            local check = Instance.new("Frame"); check.Size = UDim2.new(0, 10, 0, 10); check.Position = UDim2.new(1, -15, 0.5, -5); check.BackgroundColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(80, 80, 80); check.Parent = frame; Instance.new("UICorner", check).CornerRadius = UDim.new(0, 2)
-            frame.MouseButton1Click:Connect(function() state = not state; check.BackgroundColor3 = state and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(80, 80, 80); safeCall(cb, state) end)
+        function moduleObj:AddDropdown(t, o, c)
+            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    > " .. t .. ": " .. tostring(o[1]); b.TextColor3 = Color3.fromRGB(180, 180, 180); b.Font = Enum.Font.SourceSans; b.TextSize = 11; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 2; b.Parent = SubFrame
+            local i = 1; b.MouseButton1Click:Connect(function() i = i + 1; if i > #o then i = 1 end; b.Text = "    > " .. t .. ": " .. tostring(o[i]); c(o[i]) end)
         end
-
-        function moduleObj:AddDropdown(text, options, cb)
-            if not (type(options) == "table" and #options > 0) then return end
-            local currentIndex = 1; local dropdownBtn = Instance.new("TextButton"); dropdownBtn.Size = UDim2.new(1, -10, 0, 20); dropdownBtn.BackgroundTransparency = 1; dropdownBtn.Font = Enum.Font.SourceSans; dropdownBtn.TextSize = 13; dropdownBtn.TextColor3 = Color3.fromRGB(180, 180, 180); dropdownBtn.Text = " " .. text .. ": " .. tostring(options[currentIndex]); dropdownBtn.TextXAlignment = Enum.TextXAlignment.Left; dropdownBtn.Parent = SubFrame
-            dropdownBtn.MouseButton1Click:Connect(function() currentIndex = currentIndex % #options + 1; dropdownBtn.Text = " " .. text .. ": " .. tostring(options[currentIndex]); safeCall(cb, options[currentIndex]) end)
+        function moduleObj:AddSlider(t, min, max, d, c)
+            local f = Instance.new("Frame"); f.Size = UDim2.new(1, 0, 0, 30); f.BackgroundTransparency = 1; f.LayoutOrder = 3; f.Parent = SubFrame
+            local l = Instance.new("TextLabel"); l.Size = UDim2.new(1, 0, 0, 15); l.Text = "    " .. t .. ": " .. tostring(d); l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
+            local bar = Instance.new("Frame"); bar.Size = UDim2.new(0.8, 0, 0, 4); bar.Position = UDim2.new(0.1, 0, 0.7, 0); bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60); bar.Parent = f
+            local fill = Instance.new("Frame"); fill.Size = UDim2.new((d-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(0, 120, 200); fill.Parent = bar
+            local function up(input)
+                local p = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
+                fill.Size = UDim2.new(p, 0, 1, 0); local v = math.floor(min + (p * (max - min))); l.Text = "    " .. t .. ": " .. tostring(v); c(v)
+            end
+            local drag = false
+            bar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then drag = true up(input) end end)
+            UserInputService.InputChanged:Connect(function(input) if drag and input.UserInputType == Enum.UserInputType.MouseMovement then up(input) end end)
+            UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end end)
         end
-
-        function moduleObj:AddSlider(text, min, max, default, cb)
-             if not (type(min) == "number" and type(max) == "number" and max > min) then return end
-            default = (type(default) == "number" and math.clamp(default, min, max)) or min; local frame = Instance.new("Frame"); frame.Size = UDim2.new(1, -10, 0, 35); frame.BackgroundTransparency = 1; frame.Parent = SubFrame
-            local label = Instance.new("TextLabel"); label.Size = UDim2.new(1, 0, 0, 15); label.BackgroundTransparency = 1; label.Font = Enum.Font.SourceSans; label.TextSize = 13; label.TextColor3 = Color3.fromRGB(180, 180, 180); label.TextXAlignment = Enum.TextXAlignment.Left; label.Parent = frame
-            local bar = Instance.new("Frame"); bar.Size = UDim2.new(1, 0, 0, 4); bar.Position = UDim2.new(0, 0, 0, 20); bar.BackgroundColor3 = Color3.fromRGB(60,60,60); bar.Parent = frame; Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-            local fill = Instance.new("Frame"); fill.Parent = bar; Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0); fill.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-            local function updateSlider(value, fromDrag) local intValue = math.floor(value + 0.5); local percentage = (intValue - min) / (max - min); fill.Size = UDim2.new(percentage, 0, 1, 0); label.Text = " " .. text .. ": " .. tostring(intValue); if fromDrag then safeCall(cb, intValue) end end
-            updateSlider(default, false)
-            local dragging = false; local function onDrag(input) local percentage = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1); local value = min + percentage * (max - min); updateSlider(value, true) end
-            bar.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; onDrag(i) end end); bar.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end); UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then onDrag(i) end end)
-            safeCall(cb, default)
-        end
-        
         return moduleObj
     end
-    
     return categoryObj
 end
+
+--[[
+    6. CONFIGURAÇÕES
+]]
+SettingsBtn.MouseButton1Click:Connect(function()
+    local win = Library:CreateWindow("Configurações Globais", UDim2.new(0, 300, 0, 220))
+    win:AddButton("🛡️ Gerenciar Whitelist", function() Library:OpenWhitelistWindow() end)
+    local kb = win:AddButton("⌨️ Atalho do Menu: " .. Library.OpenKey.Name, function() end)
+    kb.MouseButton1Click:Connect(function()
+        kb.Text = "... Pressione uma tecla ..."; local c; c = UserInputService.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Keyboard then Library.OpenKey = i.KeyCode; kb.Text = "⌨️ Atalho do Menu: " .. i.KeyCode.Name; c:Disconnect() end
+        end)
+    end)
+    win:AddButton("❌ Remover Script (Atalho: K)", function() ScreenGui:Destroy() end)
+end)
+
+-- ATALHO GLOBAL PARA REMOVER (K)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Library.RemoveKey then ScreenGui:Destroy() end
+end)
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local q = string.lower(SearchBox.Text)
+    for _, cat in ipairs(Library.Categories) do
+        local has = false
+        for _, mod in ipairs(cat:FindFirstChild("Options"):GetChildren()) do
+            if mod:IsA("Frame") then
+                local b = mod:FindFirstChildOfClass("TextButton")
+                if b and string.find(string.lower(b.Text), q) then mod.Visible = true; has = true else mod.Visible = false end
+            end
+        end
+        cat.Visible = (q == "" or has)
+    end
+end)
+
+--[[
+    7. OVERLAY
+]]
+function Library:CreateOverlay(id, title, color)
+    if Library.Overlays[id] then return Library.Overlays[id] end
+    local o = Instance.new("Frame"); o.Size = UDim2.new(0, 220, 0, 80); o.BackgroundColor3 = Color3.fromRGB(20, 20, 25); o.BackgroundTransparency = 0.2; o.BorderSizePixel = 0; o.Visible = false; o.Parent = ScreenGui; Instance.new("UICorner", o).CornerRadius = UDim.new(0, 8)
+    local b = Instance.new("Frame"); b.Size = UDim2.new(1, 0, 0, 2); b.BackgroundColor3 = color or Color3.fromRGB(0, 150, 255); b.BorderSizePixel = 0; b.Parent = o; Instance.new("UICorner", b)
+    local t = Instance.new("TextLabel"); t.Size = UDim2.new(1, -10, 0, 20); t.Position = UDim2.new(0, 10, 0, 5); t.Text = title; t.TextColor3 = color or Color3.fromRGB(0, 150, 255); t.Font = Enum.Font.SourceSansBold; t.TextSize = 12; t.BackgroundTransparency = 1; t.TextXAlignment = Enum.TextXAlignment.Left; t.Parent = o
+    local a = Instance.new("ImageLabel"); a.Size = UDim2.new(0, 40, 0, 40); a.Position = UDim2.new(0, 10, 0, 30); a.BackgroundColor3 = Color3.fromRGB(40, 40, 45); a.Parent = o; Instance.new("UICorner", a).CornerRadius = UDim.new(1, 0)
+    local n = Instance.new("TextLabel"); n.Size = UDim2.new(1, -60, 0, 15); n.Position = UDim2.new(0, 60, 0, 30); n.Text = "Nenhum"; n.TextColor3 = Color3.fromRGB(255, 255, 255); n.Font = Enum.Font.SourceSansBold; n.TextSize = 14; n.TextXAlignment = Enum.TextXAlignment.Left; n.BackgroundTransparency = 1; n.Parent = o
+    local i_l = Instance.new("TextLabel"); i_l.Size = UDim2.new(1, -60, 0, 15); i_l.Position = UDim2.new(0, 60, 0, 45); i_l.Text = ""; i_l.TextColor3 = Color3.fromRGB(180, 180, 180); i_l.Font = Enum.Font.SourceSans; i_l.TextSize = 12; i_l.TextXAlignment = Enum.TextXAlignment.Left; i_l.BackgroundTransparency = 1; i_l.Parent = o
+    local d = Instance.new("TextLabel"); d.Size = UDim2.new(1, -60, 0, 15); d.Position = UDim2.new(0, 60, 0, 60); d.Text = ""; d.TextColor3 = color or Color3.fromRGB(0, 150, 255); d.Font = Enum.Font.SourceSansBold; d.TextSize = 12; d.TextXAlignment = Enum.TextXAlignment.Left; d.BackgroundTransparency = 1; d.Parent = o
+    local obj = { Frame = o }
+    function obj:Update(p, dist, info) if not p then o.Visible = false; return end; o.Visible = true; n.Text = p.DisplayName; i_l.Text = info or ("@" .. p.Name); d.Text = dist and (string.format("%.1f", dist) .. "m") or ""; task.spawn(function() a.Image = Players:GetUserThumbnailAsync(p.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end) end
+    function obj:SetVisible(s) o.Visible = s end
+    function obj:SetPosition(pos) o.Position = pos end
+    Library.Overlays[id] = obj; return obj
+end
+
+Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed) if pressed then MainFrame.Visible = not MainFrame.Visible end end)
 
 return Library
