@@ -1,6 +1,5 @@
 -- ========== NAMETAG (Nome + Vida + Distância em Português) ==========
-local Library = ...
-local Visual = ... -- Recebe a categoria Visual do loader
+local Library, Visual = ..., select(2, ...)
 
 -- Serviços
 local Players = game:GetService("Players")
