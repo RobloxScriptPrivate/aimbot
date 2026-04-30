@@ -1,121 +1,92 @@
--- ========== MOVIMENTO V5 (Padrão Aimbot) ==========
+-- ========== MOVIMENTO v9.1 (Módulos Separados Fix) ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
 local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
 
--- Variáveis
-local originalWalkSpeed = 16
-local noclipEnabled = false
-local flyEnabled = false
-local flySpeed = 50
+local flyConnection = nil
+local noclipConnection = nil
+local freecamConnection = nil
 
-local noclipConnection, flyConnection, flyVelocity = nil, nil, nil
-
--- Garante que temos a velocidade original
-local function getOriginalSpeed()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        originalWalkSpeed = LocalPlayer.Character.Humanoid.WalkSpeed
-    end
-end
-getOriginalSpeed()
-LocalPlayer.CharacterAdded:Connect(function(char)
-    getOriginalSpeed()
-    if noclipEnabled then -- Re-aplica o noclip no novo personagem
-        toggleNoclip(true, true)
-    end
-    if flyEnabled then -- Re-aplica o fly no novo personagem
-        toggleFly(true, true)
+-- FLY
+MovementCategory:AddModule("✈️ Fly", function(enabled)
+    if enabled then
+        local char = LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local rootPart = char.HumanoidRootPart
+        local bodyGyro = Instance.new("BodyGyro", rootPart)
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.D = 100; bodyGyro.P = 10000
+        local bodyVelocity = Instance.new("BodyVelocity", rootPart)
+        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        local speed = 50
+        flyConnection = RunService.RenderStepped:Connect(function()
+            local cameraCF = workspace.CurrentCamera.CFrame
+            bodyGyro.CFrame = cameraCF
+            local moveVector = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - cameraCF.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + cameraCF.RightVector end
+            bodyVelocity.Velocity = moveVector.Magnitude > 0 and cameraCF:VectorToWorldSpace(moveVector.Unit) * speed or Vector3.new(0, 0, 0)
+        end)
+    else
+        if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local rootPart = char.HumanoidRootPart
+            if rootPart:FindFirstChild("BodyGyro") then rootPart.BodyGyro:Destroy() end
+            if rootPart:FindFirstChild("BodyVelocity") then rootPart.BodyVelocity:Destroy() end
+        end
     end
 end)
 
-
--- LÓGICA DAS FUNÇÕES
-
-local function toggleNoclip(state, force)
-    if not force then noclipEnabled = state end
-
-    if noclipEnabled then
-        if noclipConnection then noclipConnection:Disconnect() end
+-- NOCLIP
+MovementCategory:AddModule("👻 Noclip", function(enabled)
+    if enabled then
         noclipConnection = RunService.Stepped:Connect(function()
-            if LocalPlayer.Character then
-                for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
-                    end
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end)
     else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-    end
-end
-
-local flyKeys = { F = Enum.KeyCode.W, B = Enum.KeyCode.S, L = Enum.KeyCode.A, R = Enum.KeyCode.D, U = Enum.KeyCode.Space, D = Enum.KeyCode.LeftControl }
-
-local function toggleFly(state, force)
-    if not force then flyEnabled = state end
-
-    local char = LocalPlayer.Character
-    if flyEnabled and char and char:FindFirstChild("HumanoidRootPart") then
-        if flyConnection then flyConnection:Disconnect() end
-        if flyVelocity then flyVelocity:Destroy() end
-
-        flyVelocity = Instance.new("BodyVelocity", char.HumanoidRootPart)
-        flyVelocity.MaxForce = Vector3.new(1, 1, 1) * 1e7
-        flyVelocity.Velocity = Vector3.new(0, 0, 0)
-
-        flyConnection = RunService.RenderStepped:Connect(function()
-            local camCF = workspace.CurrentCamera.CFrame
-            local move = Vector3.new()
-            if UserInputService:IsKeyDown(flyKeys.F) then move = move + camCF.LookVector end
-            if UserInputService:IsKeyDown(flyKeys.B) then move = move - camCF.LookVector end
-            if UserInputService:IsKeyDown(flyKeys.R) then move = move + camCF.RightVector end
-            if UserInputService:IsKeyDown(flyKeys.L) then move = move - camCF.RightVector end
-            if UserInputService:IsKeyDown(flyKeys.U) then move = move + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(flyKeys.D) then move = move - Vector3.new(0, 1, 0) end
-
-            if flyVelocity and flyVelocity.Parent then
-                flyVelocity.Velocity = (move.Magnitude > 0 and move.Unit * flySpeed or Vector3.new(0,0,0))
-            end
-        end)
-    else
-        if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
-        if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
-    end
-end
-
-
--- CRIAÇÃO DO MÓDULO E CONTROLES (Padrão Aimbot)
-
--- O Toggle principal do módulo não faz nada, é só um container.
-local MovementModule = MovementCategory:AddModule("🏃 Movimento Geral", function(state) end)
-
-MovementModule:AddToggle("👻 Noclip", false, toggleNoclip)
-MovementModule:AddToggle("✈️ Fly", false, toggleFly)
-
-MovementModule:AddSlider("Velocidade do Personagem", 16, 200, originalWalkSpeed, function(val)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = val
+        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
     end
 end)
 
-MovementModule:AddSlider("Velocidade do Voo", 50, 500, flySpeed, function(val) flySpeed = val end)
-
-
-print("✅ Módulo de Movimento carregado (v5)!")
-
--- Função de limpeza geral
-return function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = originalWalkSpeed
+-- FREECAM
+MovementCategory:AddModule("📷 Freecam", function(enabled)
+    local camera = workspace.CurrentCamera
+    if enabled then
+        camera.CameraType = Enum.CameraType.Scriptable
+        local moveSpeed = 5
+        freecamConnection = RunService.RenderStepped:Connect(function()
+            local moveVector = Vector3.new()
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0,0,-1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0,0,1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1,0,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1,0,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.E) then moveVector = moveVector + Vector3.new(0,1,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Q) then moveVector = moveVector + Vector3.new(0,-1,0) end
+            camera.CFrame = camera.CFrame * CFrame.new(moveVector * moveSpeed)
+        end)
+    else
+        if freecamConnection then freecamConnection:Disconnect(); freecamConnection = nil end
+        camera.CameraType = Enum.CameraType.Custom
+        camera.CameraSubject = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
     end
-    toggleNoclip(false)
-    toggleFly(false)
+end)
+
+print("✅ Módulos de Movimento carregados.")
+return function()
+    if flyConnection then flyConnection:Disconnect() end
+    if noclipConnection then noclipConnection:Disconnect() end
+    if freecamConnection then freecamConnection:Disconnect() end
 end

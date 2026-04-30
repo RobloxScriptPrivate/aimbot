@@ -4,6 +4,7 @@ local Library, Visual = ..., select(2, ...)
 -- Serviços
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -39,7 +40,19 @@ end
 -- Mesma função de validação dos outros scripts
 local function IsValidTarget(player)
     if not player or player == LocalPlayer then return false end
-    if Config.TeamCheck and player.Team and player.Team == LocalPlayer.Team then return false end
+    
+    -- Se estiver na Whitelist, não desenha como inimigo
+    if Library:IsWhitelisted(player) then return false end
+
+    if Config.TeamCheck then
+        if not player.Neutral then
+            local myTeam = LocalPlayer.Team
+            local myColor = LocalPlayer.TeamColor
+            if player.Team == myTeam or (player.TeamColor == myColor and myColor ~= nil) then
+                return false
+            end
+        end
+    end
     local character = player.Character
     if not character then return false end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
