@@ -1,5 +1,12 @@
 -- ========== NAMETAG (Nome + Vida + Distância em Português) ==========
-local Library, Visual = ..., select(2, ...)
+local Library = ...
+local Visual = select(2, ...)
+
+-- Verificação de debug
+if not Visual then
+    print("❌ ERRO: Visual é nil!")
+    return function() end
+end
 
 -- Serviços
 local Players = game:GetService("Players")
