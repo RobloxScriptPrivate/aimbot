@@ -1,45 +1,68 @@
--- ========== TELEPORTE v13 (Instantâneo & Persistente) ==========
+-- ========== TELEPORTE v15 (Cache por Mapa, Ordenado, Sub-opções) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local CurrentPlaceId = tostring(game.PlaceId)
 
--- Nome do arquivo de configuração
-local CONFIG_FILE = "Manus_Teleports"
+-- Configuração
+local CONFIG_FILE = "Manus_Teleports_V3" -- Novo arquivo para nova estrutura de dados
+local allSavedPositions = Library:LoadConfig(CONFIG_FILE) or {}
+-- Garante que o container para o mapa atual exista e seja uma tabela (array)
+if not allSavedPositions[CurrentPlaceId] or type(allSavedPositions[CurrentPlaceId]) ~= 'table' then
+    allSavedPositions[CurrentPlaceId] = {}
+end
+local currentMapPositions = allSavedPositions[CurrentPlaceId] -- é uma array
+local teleportModules = {} -- Rastreia os módulos da UI para poder limpar
 
--- Carregar posições salvas
-local savedPositions = Library:LoadConfig(CONFIG_FILE) or {}
-
--- Função para teleporte instantâneo (sem rubber-banding)
+-- Função para teleporte
 local function teleportTo(pos)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if root then
-        -- Zera a velocidade para evitar que o anticheat puxe de volta por momentum
         root.Velocity = Vector3.new(0, 0, 0)
         root.CFrame = pos
-        -- Garante que a velocidade continue zero por um frame
         task.wait()
         if root then root.Velocity = Vector3.new(0, 0, 0) end
     end
 end
 
--- Função para adicionar botão de teleporte na UI
-local function addTeleportButton(name, pos)
-    TeleportCategory:AddModule(name, function()
-        teleportTo(pos)
-    end, true)
+-- Função para redesenhar todos os botões de teleporte
+local function refreshTeleportUI()
+    -- Limpa os módulos antigos da UI
+    for _, module in ipairs(teleportModules) do
+        if module and module.Destroy then
+            module:Destroy()
+        end
+    end
+    teleportModules = {}
+
+    -- Cria novos módulos na ordem correta (a tabela já está ordenada)
+    for i, data in ipairs(currentMapPositions) do
+        local name = data.name
+        local posData = data.position
+        local cf = CFrame.new(unpack(posData))
+
+        -- Adiciona o botão principal de teleporte
+        local module = TeleportCategory:AddModule(name, function()
+            teleportTo(cf)
+        end)
+
+        -- Adiciona a sub-opção "Remover"
+        module:AddButton("Remover", function()
+            table.remove(currentMapPositions, i) -- Remove da lista local
+            Library:SaveConfig(CONFIG_FILE, allSavedPositions) -- Salva a estrutura principal que foi modificada
+            print("❌ Ponto '"..name.."' removido.")
+            refreshTeleportUI() -- Redesenha a UI para refletir a remoção
+        end)
+        
+        -- Adiciona o novo módulo à lista de rastreamento
+        table.insert(teleportModules, module)
+    end
 end
 
--- Carrega os botões salvos na inicialização
-for name, data in pairs(savedPositions) do
-    -- Converte a tabela de posição de volta para CFrame
-    local cf = CFrame.new(unpack(data))
-    addTeleportButton(name, cf)
-end
-
--- Função para abrir o gerenciador de criação
+-- Função para abrir a janela de criação de ponto
 local function openTeleportManager()
     local window = Library:CreateWindow("🌌 Novo Ponto", UDim2.new(0, 280, 0, 150))
     local nameInput = window:AddTextBox("Nome do Local...")
@@ -49,19 +72,21 @@ local function openTeleportManager()
         local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         
         if posName and #posName > 0 and root then
-            local currentCF = root.CFrame
-            -- Salva no cache local
-            local cfTable = {currentCF:GetComponents()}
-            savedPositions[posName] = cfTable
+            local newPoint = {
+                name = posName,
+                position = {root.CFrame:GetComponents()}
+            }
+            -- Adiciona no topo da lista
+            table.insert(currentMapPositions, 1, newPoint)
             
-            -- Persiste no arquivo JSON
-            Library:SaveConfig(CONFIG_FILE, savedPositions)
-            
-            -- Adiciona o botão na lista
-            addTeleportButton(posName, currentCF)
+            -- Salva a configuração global no arquivo
+            Library:SaveConfig(CONFIG_FILE, allSavedPositions)
             
             print("✅ Ponto '"..posName.."' salvo permanentemente.")
             window.Frame:Destroy()
+            
+            -- Redesenha a UI com o novo ponto no topo
+            refreshTeleportUI()
         end
     end)
 end
@@ -71,4 +96,7 @@ TeleportCategory:AddModule("➕ Criar Novo Ponto", function()
     openTeleportManager()
 end, true)
 
-print("✅ Módulo de Teleporte Persistente (v13) carregado.")
+-- Carregamento inicial dos pontos do mapa atual
+refreshTeleportUI()
+
+print("✅ Módulo de Teleporte Avançado (v15) carregado.")
