@@ -1,7 +1,7 @@
 -- ========== LOADER PRINCIPAL ==========
 print("🔧 Iniciando carregamento...")
 
--- Carrega a biblioteca GUI
+-- Carrega a biblioteca GUI do seu próprio repositório
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/gui.lua"))()
 
 task.wait(0.5)
