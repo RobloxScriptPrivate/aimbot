@@ -1,4 +1,4 @@
--- Manus GUI Library V5.0 (Sub-Scrolling & Layout Inteligente)
+-- Manus GUI Library V5.1 (Fix AddKeybind & Scrolling)
 local Library = {}
 
 -- Serviços
@@ -20,6 +20,21 @@ Library.Overlays = {}
 Library.SettingsOpen = false
 Library.Whitelist = {}
 Library.AllyColors = {}
+
+--[[
+    Sistema de Keybinds (DEFINIDO NO INÍCIO PARA EVITAR ERROS)
+]]
+function Library:AddKeybind(text, defaultKey, callback)
+    local key = defaultKey
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if not processed and input.KeyCode == key then
+            if callback then callback(key, true) end
+        end
+    end)
+    return {
+        SetKey = function(newKey) key = newKey end
+    }
+end
 
 --[[
     Sistema de Persistência (JSON)
@@ -57,7 +72,7 @@ end
     Inicialização da GUI Principal
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V5_0"
+ScreenGui.Name = "ManusGuiLib_V5_1"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -372,11 +387,11 @@ function Library:CreateCategory(name, position)
         SubFrame.Parent = ModuleContainer
         
         local subLayout = Instance.new("UIListLayout", SubFrame)
-        subLayout.SortOrder = Enum.SortOrder.LayoutOrder -- Permite organizar por LayoutOrder
+        subLayout.SortOrder = Enum.SortOrder.LayoutOrder
         
         local function updateSizes()
             local contentHeight = subLayout.AbsoluteContentSize.Y
-            local maxSubHeight = 150 -- Altura máxima antes de scrollar
+            local maxSubHeight = 150
             
             if SubFrame.Visible then
                 SubFrame.Size = UDim2.new(1, 0, 0, math.min(contentHeight, maxSubHeight))
@@ -424,7 +439,7 @@ function Library:CreateCategory(name, position)
             local ToggleFrame = Instance.new("Frame")
             ToggleFrame.Size = UDim2.new(1, 0, 0, 22)
             ToggleFrame.BackgroundTransparency = 1
-            ToggleFrame.LayoutOrder = 1 -- TOGGLES PRIMEIRO
+            ToggleFrame.LayoutOrder = 1
             ToggleFrame.Parent = SubFrame
             
             local Btn = Instance.new("TextButton")
@@ -449,7 +464,7 @@ function Library:CreateCategory(name, position)
             local DropdownFrame = Instance.new("Frame")
             DropdownFrame.Size = UDim2.new(1, 0, 0, 22)
             DropdownFrame.BackgroundTransparency = 1
-            DropdownFrame.LayoutOrder = 2 -- DROPDOWNS SEGUNDO
+            DropdownFrame.LayoutOrder = 2
             DropdownFrame.Parent = SubFrame
             
             local Btn = Instance.new("TextButton")
@@ -476,7 +491,7 @@ function Library:CreateCategory(name, position)
             local SliderFrame = Instance.new("Frame")
             SliderFrame.Size = UDim2.new(1, 0, 0, 35)
             SliderFrame.BackgroundTransparency = 1
-            SliderFrame.LayoutOrder = 3 -- SLIDERS TERCEIRO
+            SliderFrame.LayoutOrder = 3
             SliderFrame.Parent = SubFrame
             
             local Label = Instance.new("TextLabel")
@@ -522,12 +537,11 @@ function Library:CreateCategory(name, position)
             return SliderFrame
         end
         
-        -- Método para adicionar botões de ação nas sub-opções
         function moduleObj:AddButton(text, subCallback)
             local BtnFrame = Instance.new("Frame")
             BtnFrame.Size = UDim2.new(1, 0, 0, 25)
             BtnFrame.BackgroundTransparency = 1
-            BtnFrame.LayoutOrder = 10 -- BOTÕES POR ÚLTIMO
+            BtnFrame.LayoutOrder = 10
             BtnFrame.Parent = SubFrame
             
             local Btn = Instance.new("TextButton")
@@ -552,23 +566,13 @@ function Library:CreateCategory(name, position)
     return categoryObj
 end
 
---[[
-    Keybinds Iniciais Globais
-]]
+-- Keybinds Iniciais Globais (Configurados após a definição dos métodos)
 Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
-    if pressed then
-        MainFrame.Visible = not MainFrame.Visible
-    else 
-        Library.OpenKey = key
-    end
+    if pressed then MainFrame.Visible = not MainFrame.Visible end
 end)
 
 Library:AddKeybind("Remover Script", Library.RemoveKey, function(key, pressed)
-    if pressed then
-        ScreenGui:Destroy()
-    else
-        Library.RemoveKey = key
-    end
+    if pressed then ScreenGui:Destroy() end
 end)
 
 return Library
