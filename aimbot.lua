@@ -1,4 +1,4 @@
--- ========== AIMBOT DUPLO V2.4 (Layout Organizado & Whitelist) ==========
+-- ========== AIMBOT DUPLO V2.5 (Integração GUI V6.0) ==========
 local Library, AimCategory = ..., select(2, ...)
 
 -- Serviços
@@ -138,7 +138,8 @@ local function StartLoop()
 
         if Config.ShowPanels then
             if lockedTargetRight then
-                local dist = (Camera.CFrame.Position - GetTargetPart(lockedTargetRight.Character).Position).Magnitude
+                local part = GetTargetPart(lockedTargetRight.Character)
+                local dist = (Camera.CFrame.Position - part.Position).Magnitude
                 overlayRight:Update(lockedTargetRight, dist, "🎯 FOV Lock")
             else overlayRight:SetVisible(false) end
             if lockedTargetF then
@@ -169,31 +170,17 @@ local MainToggle = AimCategory:AddModule("🔥 Aimbot Master", function(state)
     if state then StartLoop() end
 end, false)
 
--- 1. TOGGLES (LAYOUT ORDER 1)
+-- 1. TOGGLES
 MainToggle:AddToggle("👥 Checar Time", Config.TeamCheck, function(state) Config.TeamCheck = state end)
 MainToggle:AddToggle("👁️ Mostrar FOV", Config.ShowFOV, function(state) Config.ShowFOV = state end)
 MainToggle:AddToggle("📊 Mostrar Painéis", Config.ShowPanels, function(state) Config.ShowPanels = state end)
 
--- 2. DROPDOWNS (LAYOUT ORDER 2)
+-- 2. DROPDOWNS
 MainToggle:AddDropdown("🎯 Parte do Corpo", {"Head", "HumanoidRootPart"}, function(val) Config.AimPart = val end)
 
--- 3. SLIDERS (LAYOUT ORDER 3)
+-- 3. SLIDERS
 MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val) Config.FOV = val end)
 MainToggle:AddSlider("🌀 Suavização", 1, 10, 2, function(val) Config.Smoothing = val/10 end)
 
--- 4. BOTÕES (LAYOUT ORDER 10)
-MainToggle:AddButton("🛡️ Gerenciar Whitelist", function()
-    local window = Library:CreateWindow("🛡️ Whitelist de Jogadores", UDim2.new(0, 300, 0, 250))
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            local isW = Library:IsWhitelisted(p)
-            window:AddButton((isW and "[WL] " or "") .. p.DisplayName, function()
-                Library:ToggleWhitelist(p)
-                window.Frame:Destroy()
-            end)
-        end
-    end
-end)
-
-print("✅ Aimbot V2.4 (Layout Organizado) carregado!")
+print("✅ Aimbot V2.5 (GUI V6.0) carregado!")
 return function() if updateConnection then updateConnection:Disconnect() end end
