@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v10 - Simplificado) ==========
-print("🔧 Iniciando carregamento remoto v10 (Simplificado). Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v11 - Corrigido para GUI V4) ==========
+print("🔧 Iniciando carregamento remoto v11 (Corrigido). Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -18,7 +18,7 @@ local function fetch(file)
     end
 end
 
--- Etapa 1: Carregar a biblioteca GUI (v5+ com layout automático)
+-- Etapa 1: Carregar a biblioteca GUI (V4 - Original)
 print("\n--- Etapa 1: Carregando GUI ---")
 local gui_code = fetch("gui.lua")
 if not gui_code then
@@ -31,22 +31,30 @@ if not Library then
     warn("❌ ERRO FATAL: A biblioteca da GUI falhou ao executar.")
     return
 end
-print("✅ Biblioteca GUI (v5+) carregada e executada.")
+print("✅ Biblioteca GUI (V4) carregada e executada.")
 
 
--- Etapa 2: Criar as categorias (SIMPLIFICADO)
+-- Etapa 2: Criar as categorias (Com Posições Manuais para V4)
 print("\n--- Etapa 2: Criando Categorias ---")
--- A nova GUI (v5+) gerencia o layout automaticamente. Não precisamos mais de posições manuais.
 task.wait(0.1)
-local Combat = Library:CreateCategory("⚔️ Combat")
+-- A GUI V4 requer posições manuais (UDim2) para cada categoria.
+local startX = 10
+local startY = 120 -- Posição abaixo da barra superior
+local catWidth = 150
+local spacing = 10
+
+local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, startX, 0, startY))
 print("➡️ Categoria Combat criada.")
-local Visual = Library:CreateCategory("👁️ Visual")
+
+local Visual = Library:CreateCategory("👁️ Visual", UDim2.new(0, startX + catWidth + spacing, 0, startY))
 print("➡️ Categoria Visual criada.")
-local Movement = Library:CreateCategory("🏃 Movimento")
+
+local Movement = Library:CreateCategory("🏃 Movimento", UDim2.new(0, startX + (catWidth + spacing) * 2, 0, startY))
 print("➡️ Categoria Movement criada.")
-local Teleport = Library:CreateCategory("🌌 Teleporte")
+
+local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, startX + (catWidth + spacing) * 3, 0, startY))
 print("➡️ Categoria Teleport criada.")
-print("✅ Todas as categorias processadas com layout automático.")
+print("✅ Todas as categorias processadas com layout manual.")
 
 
 -- Etapa 3: Carregar os Módulos
@@ -84,31 +92,12 @@ cleanupFuncs.esp = LoadModule("esp.lua", Visual)
 cleanupFuncs.nametag = LoadModule("nametag.lua", Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
--- NOTA: O freecam.lua foi integrado ao movement.lua, então não é mais carregado aqui.
 
 
 -- Etapa 4: Configurar Limpeza Geral
 print("\n--- Etapa 4: Configurando Limpeza Geral ---")
-local function FullCleanup()
-    print("🧹 Removendo todos os módulos...")
-    for name, cleanup in pairs(cleanupFuncs) do
-        if type(cleanup) == 'function' then
-            pcall(cleanup)
-            print("🧼 Módulo '"..name.."' limpo.")
-        end
-    end
-    local guiLib = game.Players.LocalPlayer.PlayerGui:FindFirstChild("ManusGuiLib")
-    if guiLib then guiLib:Destroy() end
-    print("✅ Todos os módulos e a GUI foram removidos!")
-end
-
--- O AddKeybind agora é gerenciado pela própria biblioteca, mas podemos ter um específico para o cleanup.
-Library:AddKeybind("Remover Script", Enum.KeyCode.K, function(key, pressed)
-    if pressed then
-        FullCleanup()
-    end
-end)
-print("✅ Keybind de remoção configurado.")
+-- A V4 já tem a tecla K para remover o script por padrão.
+print("✅ Keybind de remoção (K) já está incluso na biblioteca V4.")
 
 print("\n\n🎉🎉 CARREGAMENTO FINALIZADO. Tudo pronto. 🎉🎉")
 print("👉 Pressione INSERT para abrir o menu.")
