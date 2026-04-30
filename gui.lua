@@ -1,5 +1,5 @@
--- Manus GUI Library V8 - Correção final e completa.
--- AddDropdown e todas as outras funções estão 100% implementadas.
+-- Manus GUI Library V9 - Correção do erro 'Invoke'.
+-- As categorias agora abrem por padrão sem quebrar.
 
 local Library = {}
 
@@ -22,7 +22,7 @@ Library.Visible = true
 -- Layout
 Library.CategoryStartX = 10
 Library.CategoryStartY = 70
-Library.CategoryWidth = 170 -- Aumentado para melhor espaço
+Library.CategoryWidth = 170
 Library.CategorySpacing = 15
 Library.NextCategoryX = Library.CategoryStartX
 
@@ -46,7 +46,7 @@ Library.Theme = {
 -- GUI E UTILITÁRIOS
 --==================================================================================================
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "ManusGuiLib_V8"
+ScreenGui.Name = "ManusGuiLib_V9"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -101,12 +101,12 @@ function Library:CreateCategory(name)
     
     local OptionsFrame = Instance.new("Frame", CategoryFrame)
     OptionsFrame.Name = "Options"
-    OptionsFrame.Size = UDim2.new(1, 0, 0, 0)
-    OptionsFrame.Position = UDim2.new(0, 0, 1, 5)
+    OptionsFrame.Size = UDim2.new(1, -10, 0, 0)
+    OptionsFrame.Position = UDim2.new(0, 5, 1, 5)
     OptionsFrame.BackgroundColor3 = Library.Theme.Options
     OptionsFrame.BorderSizePixel = 0
     OptionsFrame.ClipsDescendants = true
-    OptionsFrame.Visible = false -- Começa fechado
+    OptionsFrame.Visible = true -- Começa aberto
     
     local UIListLayout = Instance.new("UIListLayout", OptionsFrame)
     UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -115,13 +115,14 @@ function Library:CreateCategory(name)
     
     makeDraggable(CategoryFrame, Title)
     
-    local categoryObj = { Frame = CategoryFrame, Options = OptionsFrame, Expanded = false, Modules = {} }
+    local categoryObj = { Frame = CategoryFrame, Options = OptionsFrame, Expanded = true, Modules = {} } -- Começa expandido
     
     local function resizeCategory(instant)
         if not categoryObj.Expanded then return end
         local totalHeight = UIListLayout.AbsoluteContentSize.Y + 10
         local time = instant and 0 or 0.15
         OptionsFrame:TweenSize(UDim2.new(1, -10, 0, totalHeight), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, time, true)
+        CategoryFrame:TweenSize(UDim2.new(0, Library.CategoryWidth, 0, 35 + totalHeight), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, time, true)
     end
 
     Title.MouseButton1Click:Connect(function()
@@ -129,12 +130,14 @@ function Library:CreateCategory(name)
         OptionsFrame.Visible = categoryObj.Expanded
         local newHeight = categoryObj.Expanded and (UIListLayout.AbsoluteContentSize.Y + 10) or 0
         OptionsFrame:TweenSize(UDim2.new(1, -10, 0, newHeight), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+        local newCatHeight = categoryObj.Expanded and (35 + newHeight) or 30
+        CategoryFrame:TweenSize(UDim2.new(0, Library.CategoryWidth, 0, newCatHeight), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
     end)
     
     function categoryObj:AddModule(moduleName, callback, isTrigger)
         local ModuleFrame = Instance.new("Frame", OptionsFrame)
         ModuleFrame.Name = moduleName
-        ModuleFrame.Size = UDim2.new(1, -10, 0, 35) -- Base height
+        ModuleFrame.Size = UDim2.new(1, -10, 0, 35)
         ModuleFrame.BackgroundColor3 = Library.Theme.Module
         ModuleFrame.ClipsDescendants = true
         Instance.new("UICorner", ModuleFrame).CornerRadius = UDim.new(0, 3)
@@ -150,7 +153,7 @@ function Library:CreateCategory(name)
         HeaderFrame.Name = "Header"
         HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
         HeaderFrame.BackgroundTransparency = 1
-        HeaderFrame.LayoutOrder = -100 -- Garante que o Header fique no topo
+        HeaderFrame.LayoutOrder = -100
 
         local HeaderLabel = Instance.new("TextLabel", HeaderFrame)
         HeaderLabel.Size = UDim2.new(1, -50, 1, 0)
@@ -188,7 +191,7 @@ function Library:CreateCategory(name)
             btn.Size = UDim2.new(1, 0, 1, 0)
             btn.BackgroundTransparency = 1
             btn.Text = ""
-            btn.MouseButton1Click:Connect(function() if callback then pcall(callback) end end)
+            if callback then btn.MouseButton1Click:Connect(callback) end
         end
         
         local function resizeModule()
@@ -243,7 +246,7 @@ function Library:CreateCategory(name)
                 Check.Text = state and "✓" or ""
                 if toggleCallback then pcall(toggleCallback, state) end
             end)
-            if toggleCallback then pcall(toggleCallback, state) end -- Call once on start
+            if toggleCallback then pcall(toggleCallback, state) end
             resizeModule()
         end
 
@@ -261,7 +264,7 @@ function Library:CreateCategory(name)
             Label.BackgroundTransparency = 1
             Label.TextXAlignment = Enum.TextXAlignment.Left
 
-            local Slider = Instance.new("TextButton", CompFrame) -- TextButton for better input detection
+            local Slider = Instance.new("TextButton", CompFrame)
             Slider.Size = UDim2.new(1, -10, 0, 8)
             Slider.Position = UDim2.new(0, 5, 0, 20)
             Slider.BackgroundColor3 = Library.Theme.AccentDark
@@ -312,7 +315,7 @@ function Library:CreateCategory(name)
             end)
             
             UpdateSlider(initialValue, true)
-            if sliderCallback then pcall(sliderCallback, initialValue) end -- Call once on start
+            if sliderCallback then pcall(sliderCallback, initialValue) end
             resizeModule()
         end
         
@@ -380,7 +383,7 @@ function Library:CreateCategory(name)
             end)
 
             updateText()
-            if dropdownCallback then pcall(dropdownCallback, state.selected) end -- Call on start
+            if dropdownCallback then pcall(dropdownCallback, state.selected) end
             resizeModule()
         end
         
@@ -395,9 +398,6 @@ function Library:CreateCategory(name)
         return moduleObj
     end
     
-    -- Abre a categoria por padrão para mostrar o conteúdo
-    Title.MouseButton1Click:Invoke()
-
     return categoryObj
 end
 
@@ -497,5 +497,5 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-print("✅ Manus GUI Library V8 Carregada. Correção final.")
+print("✅ Manus GUI Library V9 Carregada. Desta vez vai.")
 return Library
