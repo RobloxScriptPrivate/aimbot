@@ -1,60 +1,61 @@
--- ========== LOADER PRINCIPAL (VERSÃO LOCAL) ==========
-print("🔧 Iniciando carregamento local...")
+-- ========== LOADER PRINCIPAL (100% REMOTO) ==========
+print("🔧 Iniciando carregamento remoto v3...")
 
--- Função para carregar código de um arquivo local
--- Nota: readfile() é uma função comum em muitos executores.
--- Se o seu usar uma função diferente, você precisará ajustar aqui.
-local function LoadCodeFromFile(filename)
-    local success, code = pcall(readfile, filename)
-    if success and code then
-        return code
+local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
+
+-- Função para buscar e carregar código da URL
+local function fetch(file)
+    local url = BASE_URL .. file
+    local success, content = pcall(function() return game:HttpGet(url) end)
+    if success and content then
+        print("✅ Conteúdo de '"..file.."' baixado.")
+        return content
     else
-        print("❌ Falha ao ler o arquivo local:", filename)
-        -- Tenta carregar da URL como fallback
-        print("🔧 Tentando carregar da URL original...")
-        local fallbackUrl = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/" .. filename
-        local success_http, code_http = pcall(function() return game:HttpGet(fallbackUrl) end)
-        if success_http and code_http then
-            print("✅ Fallback via HTTP bem-sucedido para:", filename)
-            return code_http
-        else
-            print("❌ Falha ao carregar via HTTP também. Verifique o nome do arquivo e a conexão.")
-            return nil
-        end
+        print("❌ Falha ao baixar '"..file.."' da URL: " .. url)
+        return nil
     end
 end
 
 -- Carrega a biblioteca GUI
-local gui_code = LoadCodeFromFile("gui.lua")
+local gui_code = fetch("gui.lua")
 if not gui_code then
     print("❌ ERRO CRÍTICO: Não foi possível carregar a GUI. O script não pode continuar.")
     return
 end
 local Library = loadstring(gui_code)()
+print("✅ Biblioteca GUI carregada.")
 
 task.wait(0.5)
 
 -- CRIA AS CATEGORIAS UMA ÚNICA VEZ
 local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
 local Visual = Library:CreateCategory("👁️ Visual", UDim2.new(0, 10, 0, 100))
+print("✅ Categorias criadas.")
 
 task.wait(0.2)
 
 -- Carrega os módulos (passando as categorias corretamente)
 local function LoadModule(filename, category)
-    local code = LoadCodeFromFile(filename)
+    local code = fetch(filename)
     if code then
         local func = loadstring(code)
         if func then
             -- Passa a Library e a Categoria para o módulo
-            return func(Library, category) 
+            print("🔧 Carregando módulo: "..filename)
+            local success, cleanupFunc = pcall(func, Library, category)
+            if success then
+                print("✅ Módulo '"..filename.."' carregado com sucesso.")
+                return cleanupFunc
+            else
+                print("❌ Erro ao executar o módulo '"..filename.."':", cleanupFunc) -- 'cleanupFunc' will be the error message here
+            end
         end
     end
     -- Retorna uma função de limpeza vazia em caso de falha
     return function() print("Cleanup vazio para módulo falho:", filename) end
 end
 
--- Carrega os módulos locais
+-- Carrega os módulos
 local cleanupAimbot = LoadModule("aimbot.lua", Combat)
 local cleanupESP = LoadModule("esp.lua", Visual)
 local cleanupNametag = LoadModule("nametag.lua", Visual)
@@ -62,9 +63,9 @@ local cleanupNametag = LoadModule("nametag.lua", Visual)
 -- Função de limpeza completa
 local function FullCleanup()
     print("🧹 Removendo todos os módulos...")
-    if cleanupAimbot then cleanupAimbot() end
-    if cleanupESP then cleanupESP() end
-    if cleanupNametag then cleanupNametag() end
+    if cleanupAimbot and type(cleanupAimbot) == 'function' then cleanupAimbot() end
+    if cleanupESP and type(cleanupESP) == 'function' then cleanupESP() end
+    if cleanupNametag and type(cleanupNametag) == 'function' then cleanupNametag() end
     print("✅ Todos os módulos removidos!")
 end
 
@@ -78,7 +79,4 @@ Library:AddKeybind("Remover Script", Enum.KeyCode.K, function(key, pressed)
     end
 end)
 
-print("")
-print("✅ TODOS OS MÓDULOS CARREGADOS LOCALMENTE!")
-print("")
-print("👉 Pressione INSERT para abrir o menu")
+print("\n✅ TODOS OS MÓDULOS CARREGADOS!\n👉 Pressione INSERT para abrir o menu")
