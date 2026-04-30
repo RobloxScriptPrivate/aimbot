@@ -1,112 +1,52 @@
--- ========== TELEPORTE v11 (API de Janelas Reutilizável) ==========
+-- ========== TELEPORTE v12 (UI Corrigida e Simplificada) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
+-- Serviços e Variáveis
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 local savedPositions = {}
-local teleportWindow = nil
 
 -- Função principal para abrir e gerenciar a janela de teleporte
 local function openTeleportManager()
-    -- Se a janela já existe, não faça nada. A função CreateWindow já lida com isso.
-    if Library.ActiveWindows["🌌 Teleporte"] then return end
-
-    -- 1. Criar a janela usando a nova API
-    teleportWindow = Library:CreateWindow("🌌 Teleporte", UDim2.new(0, 300, 0, 400), UDim2.new(0.5, -150, 0.5, -200))
-
-    -- Container para a lista de posições salvas
-    local listContainer = Instance.new("ScrollingFrame")
-    listContainer.Name = "ListContainer"
-    listContainer.Size = UDim2.new(0.9, 0, 1, -120) -- Espaço para os controles abaixo
-    listContainer.Position = UDim2.new(0.05, 0, 0, 110)
-    listContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-    listContainer.BorderSizePixel = 1
-    listContainer.BorderColor3 = Color3.fromRGB(50,50,50)
-    listContainer.Parent = teleportWindow.Content
-    Instance.new("UIListLayout", listContainer).Padding = UDim.new(0, 3)
+    -- A API CreateWindow agora lida com janelas existentes, então podemos chamar sem medo.
     
-    -- Função para redesenhar a lista de botões
-    local function redrawList()
-        for _, child in ipairs(listContainer:GetChildren()) do
-            if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
-        end
-        
-        for i, data in ipairs(savedPositions) do
-            local positionFrame = Instance.new("Frame")
-            positionFrame.Size = UDim2.new(1, 0, 0, 30)
-            positionFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-            positionFrame.Parent = listContainer
+    -- 1. Criar a janela com tamanho reduzido
+    local window = Library:CreateWindow("🌌 Teleporte", UDim2.new(0, 280, 0, 150))
 
-            local nameLabel = Instance.new("TextLabel")
-            nameLabel.Size = UDim2.new(0.7, 0, 1, 0)
-            nameLabel.Text = "  "..data.name
-            nameLabel.TextColor3 = Color3.fromRGB(210, 210, 210)
-            nameLabel.Font = Enum.Font.SourceSans
-            nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-            nameLabel.BackgroundTransparency = 1
-            nameLabel.Parent = positionFrame
-            
-            local deleteBtn = Instance.new("TextButton")
-            deleteBtn.Size = UDim2.new(0.15, 0, 0.8, 0)
-            deleteBtn.Position = UDim2.new(0.82, 0, 0.1, 0)
-            deleteBtn.Text = "X"
-            deleteBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
-            deleteBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-            deleteBtn.Parent = positionFrame
-            deleteBtn.MouseButton1Click:Connect(function()
-                table.remove(savedPositions, i)
-                redrawList()
-            end)
-
-            nameLabel.InputBegan:connect(function(input) 
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = data.pos
-                        print("Teleportado para", data.name)
-                    end
-                end
-            end)
-        end
-        listContainer.CanvasSize = UDim2.new(0, 0, 0, #listContainer:GetChildren() * 33)
-    end
-
-    -- 2. Adicionar os componentes na janela
-    local nameInput = teleportWindow:AddTextBox("Nome do Ponto")
-    local saveButton = teleportWindow:AddButton("Salvar Posição Atual", function()
+    -- 2. Adicionar os componentes. A UIListLayout e o UIPadding da API já cuidam do alinhamento.
+    local nameInput = window:AddTextBox("Nome do Ponto")
+    local saveButton = window:AddButton("Salvar Posição", function()
         local posName = nameInput.Text
         if posName and #posName > 0 and LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart then
-            -- Verifica se o nome já existe
-            local exists = false
-            for _, data in ipairs(savedPositions) do
-                if data.name == posName then exists = true; break; end
-            end
+            local currentPos = LocalPlayer.Character.HumanoidRootPart.CFrame
+            table.insert(savedPositions, {name = posName, pos = currentPos})
             
-            if not exists then
-                table.insert(savedPositions, {name = posName, pos = LocalPlayer.Character.HumanoidRootPart.CFrame})
-                nameInput.Text = "" -- Limpa o campo
-                redrawList() -- Atualiza a lista visual
-            else
-                warn("Um ponto com o nome '"..posName.."' já existe.")
-            end
+            nameInput.Text = "" -- Limpa o campo
+            
+            -- Cria um botão para o novo ponto salvo na categoria de teleporte
+            TeleportCategory:AddModule(posName, function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = currentPos
+                    print("Teleportado para", posName)
+                end
+            end, true) -- true para ser um gatilho (trigger)
+
+            print("Posição '"..posName.."' salva.")
+            window.Frame:Destroy() -- Fecha a janela após salvar
         end
     end)
-
-    -- 3. Adiciona um botão de gatilho na categoria de Teleporte para abrir esta janela
-    redrawList() -- Desenha a lista inicial
 end
 
 -- Cria o módulo que abre a janela de teleporte
-local teleportModule = TeleportCategory:AddModule("Gerenciar Pontos", function()
+TeleportCategory:AddModule("Salvar Ponto", function()
     openTeleportManager()
 end, true) -- true para ser um gatilho (trigger)
 
-print("✅ Módulo de Teleporte (v11) carregado.")
+print("✅ Módulo de Teleporte (v12) carregado.")
 
--- Função de limpeza é chamada quando o script é removido
+-- Função de limpeza (boa prática)
 return function()
-    if teleportWindow and teleportWindow.Frame and teleportWindow.Frame.Parent then
-        teleportWindow.Frame:Destroy()
-    end
+    -- A limpeza das janelas agora é gerenciada pela gui.lua
     print("🧼 Módulo de Teleporte limpo.")
 end
