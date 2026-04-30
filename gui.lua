@@ -1,4 +1,4 @@
--- Manus GUI Library V6.2 (Restored Original Style)
+-- Manus GUI Library V6.3 (Final Fix & Original Style)
 local Library = {}
 
 -- Serviços
@@ -20,8 +20,26 @@ Library.Overlays = {}
 Library.Whitelist = {}
 
 --[[
-    1. MÉTODOS BASE
+    1. MÉTODOS DE CONFIGURAÇÃO (CORREÇÃO PARA TELEPORT)
 ]]
+function Library:SaveConfig(name, data)
+    if writefile then
+        pcall(function()
+            writefile(name .. ".json", HttpService:JSONEncode(data))
+        end)
+    end
+end
+
+function Library:LoadConfig(name)
+    if readfile and isfile and isfile(name .. ".json") then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(name .. ".json"))
+        end)
+        if success then return result end
+    end
+    return nil
+end
+
 function Library:AddKeybind(text, defaultKey, callback)
     local key = defaultKey
     UserInputService.InputBegan:Connect(function(input, processed)
@@ -47,7 +65,7 @@ end
     2. INICIALIZAÇÃO DA GUI
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V6_2"
+ScreenGui.Name = "ManusGuiLib_V6_3"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -61,7 +79,7 @@ MainFrame.BackgroundTransparency = 1
 MainFrame.Visible = true
 MainFrame.Parent = ScreenGui
 
--- BARRA SUPERIOR FIXA (ESTILO ORIGINAL)
+-- BARRA SUPERIOR FIXA
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
 TopBar.Size = UDim2.new(0, 500, 0, 35)
@@ -71,7 +89,6 @@ TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
 Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 4)
 
--- BARRA DE PESQUISA
 local SearchBox = Instance.new("TextBox")
 SearchBox.Size = UDim2.new(0, 200, 0, 24)
 SearchBox.Position = UDim2.new(0.5, -100, 0.5, -12)
@@ -84,7 +101,6 @@ SearchBox.TextSize = 14
 SearchBox.Parent = TopBar
 Instance.new("UICorner", SearchBox).CornerRadius = UDim.new(0, 4)
 
--- BOTÃO CONFIGURAÇÕES
 local SettingsBtn = Instance.new("TextButton")
 SettingsBtn.Size = UDim2.new(0, 80, 0, 24)
 SettingsBtn.Position = UDim2.new(1, -90, 0.5, -12)
@@ -117,7 +133,7 @@ local function makeDraggable(frame, dragHandle)
 end
 
 --[[
-    4. JANELA DE WHITELIST (CORRIGIDA COM ABAS E SCROLL)
+    4. JANELA DE WHITELIST (CORRIGIDA)
 ]]
 function Library:OpenWhitelistWindow()
     local window = Library:CreateWindow("🛡️ Whitelist de Jogadores", UDim2.new(0, 400, 0, 350))
@@ -132,14 +148,14 @@ function Library:OpenWhitelistWindow()
     WinSearch.Text = ""; WinSearch.TextColor3 = Color3.fromRGB(255, 255, 255); WinSearch.Font = Enum.Font.SourceSans; WinSearch.TextSize = 14; WinSearch.Parent = content; Instance.new("UICorner", WinSearch)
 
     local TabFrame = Instance.new("Frame")
-    TabFrame.Size = UDim2.new(0.9, 0, 0, 30); TabFrame.BackgroundTransparency = 1; TabFrame.Parent = content
+    TabFrame.Size = UDim2.new(0.9, 0, 0, 35); TabFrame.BackgroundTransparency = 1; TabFrame.Parent = content
     local Btn1 = Instance.new("TextButton")
-    Btn1.Size = UDim2.new(0.5, -5, 1, 0); Btn1.BackgroundColor3 = Color3.fromRGB(0, 150, 255); Btn1.Text = "Marcador"; Btn1.TextColor3 = Color3.fromRGB(255, 255, 255); Btn1.Font = Enum.Font.SourceSansBold; Btn1.Parent = TabFrame; Instance.new("UICorner", Btn1)
+    Btn1.Size = UDim2.new(0.5, -5, 1, 0); Btn1.BackgroundColor3 = Color3.fromRGB(0, 150, 255); Btn1.Text = "Marcador"; Btn1.TextColor3 = Color3.fromRGB(255, 255, 255); Btn1.Font = Enum.Font.SourceSansBold; Btn1.TextSize = 16; Btn1.Parent = TabFrame; Instance.new("UICorner", Btn1)
     local Btn2 = Instance.new("TextButton")
-    Btn2.Size = UDim2.new(0.5, -5, 1, 0); Btn2.Position = UDim2.new(0.5, 5, 0, 0); Btn2.BackgroundColor3 = Color3.fromRGB(45, 45, 45); Btn2.Text = "Marcados"; Btn2.TextColor3 = Color3.fromRGB(200, 200, 200); Btn2.Font = Enum.Font.SourceSansBold; Btn2.Parent = TabFrame; Instance.new("UICorner", Btn2)
+    Btn2.Size = UDim2.new(0.5, -5, 1, 0); Btn2.Position = UDim2.new(0.5, 5, 0, 0); Btn2.BackgroundColor3 = Color3.fromRGB(45, 45, 45); Btn2.Text = "Marcados"; Btn2.TextColor3 = Color3.fromRGB(200, 200, 200); Btn2.Font = Enum.Font.SourceSansBold; Btn2.TextSize = 16; Btn2.Parent = TabFrame; Instance.new("UICorner", Btn2)
 
     local Scroll = Instance.new("ScrollingFrame")
-    Scroll.Size = UDim2.new(0.95, 0, 1, -100); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 3; Scroll.Parent = content
+    Scroll.Size = UDim2.new(0.95, 0, 1, -110); Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 3; Scroll.Parent = content
     local listLayout = Instance.new("UIListLayout", Scroll); listLayout.Padding = UDim.new(0, 5); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
     local function refresh()
@@ -164,7 +180,7 @@ function Library:OpenWhitelistWindow()
 end
 
 --[[
-    5. API DE JANELAS E CATEGORIAS (VISUAL ORIGINAL)
+    5. API DE JANELAS E CATEGORIAS (VISUAL ORIGINAL ESTRITO)
 ]]
 function Library:CreateWindow(title, size, position)
     if Library.ActiveWindows[title] and Library.ActiveWindows[title].Frame.Parent then Library.ActiveWindows[title].Frame:Destroy() end
@@ -191,7 +207,7 @@ function Library:CreateCategory(name, position)
     local CategoryFrame = Instance.new("Frame")
     CategoryFrame.Name = name; CategoryFrame.Size = UDim2.new(0, 150, 0, 30); CategoryFrame.Position = position; CategoryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30); CategoryFrame.BorderSizePixel = 0; CategoryFrame.Parent = MainFrame
     local Title = Instance.new("TextButton")
-    Title.Size = UDim2.new(1, 0, 1, 0); Title.Text = name; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.SourceSansBold; Title.TextSize = 18; Title.BackgroundTransparency = 1; Title.Parent = CategoryFrame
+    Title.Size = UDim2.new(1, 0, 1, 0); Title.Text = name; Title.TextColor3 = Color3.fromRGB(255, 255, 255); Title.Font = Enum.Font.SourceSansBold; Title.TextSize = 16; Title.BackgroundTransparency = 1; Title.Parent = CategoryFrame
     local OptionsFrame = Instance.new("Frame")
     OptionsFrame.Size = UDim2.new(1, 0, 0, 0); OptionsFrame.Position = UDim2.new(0, 0, 1, 0); OptionsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40); OptionsFrame.BorderSizePixel = 0; OptionsFrame.ClipsDescendants = true; OptionsFrame.Parent = CategoryFrame
     local UIListLayout = Instance.new("UIListLayout", OptionsFrame); UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -209,7 +225,7 @@ function Library:CreateCategory(name, position)
         local ModuleContainer = Instance.new("Frame")
         ModuleContainer.Size = UDim2.new(1, 0, 0, 25); ModuleContainer.BackgroundTransparency = 1; ModuleContainer.Parent = OptionsFrame
         local ModuleBtn = Instance.new("TextButton")
-        ModuleBtn.Size = UDim2.new(1, 0, 0, 25); ModuleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); ModuleBtn.BorderSizePixel = 0; ModuleBtn.Text = "  " .. moduleName; ModuleBtn.TextColor3 = Color3.fromRGB(200, 200, 200); ModuleBtn.Font = Enum.Font.SourceSans; ModuleBtn.TextSize = 16; ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left; ModuleBtn.Parent = ModuleContainer
+        ModuleBtn.Size = UDim2.new(1, 0, 0, 25); ModuleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45); ModuleBtn.BorderSizePixel = 0; ModuleBtn.Text = "  " .. moduleName; ModuleBtn.TextColor3 = Color3.fromRGB(200, 200, 200); ModuleBtn.Font = Enum.Font.SourceSans; ModuleBtn.TextSize = 14; ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left; ModuleBtn.Parent = ModuleContainer
         local SubFrame = Instance.new("ScrollingFrame")
         SubFrame.Size = UDim2.new(1, 0, 0, 0); SubFrame.Position = UDim2.new(0, 0, 0, 25); SubFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); SubFrame.BorderSizePixel = 0; SubFrame.Visible = false; SubFrame.ScrollBarThickness = 2; SubFrame.Parent = ModuleContainer
         local subLayout = Instance.new("UIListLayout", SubFrame); subLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -239,16 +255,16 @@ function Library:CreateCategory(name, position)
         
         function moduleObj:AddToggle(t, d, c)
             local s = d or false
-            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 22); b.BackgroundTransparency = 1; b.Text = "    " .. t; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); b.Font = Enum.Font.SourceSans; b.TextSize = 13; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 1; b.Parent = SubFrame
+            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    " .. t; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); b.Font = Enum.Font.SourceSans; b.TextSize = 12; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 1; b.Parent = SubFrame
             b.MouseButton1Click:Connect(function() s = not s; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); c(s) end)
         end
         function moduleObj:AddDropdown(t, o, c)
-            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 22); b.BackgroundTransparency = 1; b.Text = "    > " .. t .. ": " .. tostring(o[1]); b.TextColor3 = Color3.fromRGB(180, 180, 180); b.Font = Enum.Font.SourceSans; b.TextSize = 13; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 2; b.Parent = SubFrame
+            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    > " .. t .. ": " .. tostring(o[1]); b.TextColor3 = Color3.fromRGB(180, 180, 180); b.Font = Enum.Font.SourceSans; b.TextSize = 12; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 2; b.Parent = SubFrame
             local i = 1; b.MouseButton1Click:Connect(function() i = i + 1; if i > #o then i = 1 end; b.Text = "    > " .. t .. ": " .. tostring(o[i]); c(o[i]) end)
         end
         function moduleObj:AddSlider(t, min, max, d, c)
-            local f = Instance.new("Frame"); f.Size = UDim2.new(1, 0, 0, 35); f.BackgroundTransparency = 1; f.LayoutOrder = 3; f.Parent = SubFrame
-            local l = Instance.new("TextLabel"); l.Size = UDim2.new(1, 0, 0, 18); l.Text = "    " .. t .. ": " .. tostring(d); l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.TextSize = 13; l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
+            local f = Instance.new("Frame"); f.Size = UDim2.new(1, 0, 0, 30); f.BackgroundTransparency = 1; f.LayoutOrder = 3; f.Parent = SubFrame
+            local l = Instance.new("TextLabel"); l.Size = UDim2.new(1, 0, 0, 15); l.Text = "    " .. t .. ": " .. tostring(d); l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.TextSize = 12; l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
             local bar = Instance.new("Frame"); bar.Size = UDim2.new(0.8, 0, 0, 4); bar.Position = UDim2.new(0.1, 0, 0.7, 0); bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60); bar.Parent = f
             local fill = Instance.new("Frame"); fill.Size = UDim2.new((d-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(0, 120, 200); fill.Parent = bar
             local function up(input)
@@ -277,7 +293,12 @@ SettingsBtn.MouseButton1Click:Connect(function()
             if i.UserInputType == Enum.UserInputType.Keyboard then Library.OpenKey = i.KeyCode; kb.Text = "⌨️ Atalho do Menu: " .. i.KeyCode.Name; c:Disconnect() end
         end)
     end)
-    win:AddButton("❌ Remover Script", function() ScreenGui:Destroy() end)
+    win:AddButton("❌ Remover Script (Atalho: K)", function() ScreenGui:Destroy() end)
+end)
+
+-- ATALHO GLOBAL PARA REMOVER (K)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and input.KeyCode == Library.RemoveKey then ScreenGui:Destroy() end
 end)
 
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
