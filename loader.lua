@@ -10,10 +10,19 @@ task.wait(0.5)
 local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
 local Visual = Library:CreateCategory("👁️ Visual", UDim2.new(0, 10, 0, 100))
 
--- Carrega os módulos (passando as categorias)
-local cleanupAimbot = loadstring(game:HttpGet("https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/aimbot.lua"))(Library, Combat)
-local cleanupESP = loadstring(game:HttpGet("https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/esp.lua"))(Library, Visual)
-local cleanupNametag = loadstring(game:HttpGet("https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/nametag.lua"))(Library, Visual)
+task.wait(0.2)
+
+-- Carrega os módulos (passando as categorias corretamente)
+local function LoadModule(url, category)
+    local func = loadstring(game:HttpGet(url))
+    if func then
+        return func(Library, category)
+    end
+end
+
+local cleanupAimbot = LoadModule("https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/aimbot.lua", Combat)
+local cleanupESP = LoadModule("https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/esp.lua", Visual)
+local cleanupNametag = LoadModule("https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/refs/heads/main/nametag.lua", Visual)
 
 -- Função de limpeza completa
 local function FullCleanup()
