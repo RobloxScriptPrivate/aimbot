@@ -1,4 +1,4 @@
--- ========== AIMBOT DUPLO V2.0 (FOV Estrito & Painéis Dinâmicos) ==========
+-- ========== AIMBOT DUPLO V2.2 (Rastreamento Contínuo & TeamCheck Avançado) ==========
 local Library, AimCategory = ..., select(2, ...)
 
 -- Serviços
@@ -16,11 +16,12 @@ local Config = {
     TeamCheck = true,
     ShowFOV = true,
     ShowPanels = true,
+    Smoothing = 0.2, -- Suavização da mira
 }
 
 -- VARIÁVEIS DE ESTADO
-local aimingRight = false    -- Botão Direito
-local aimingF = false        -- Tecla F
+local aimingRight = false    -- Botão Direito (FOV)
+local aimingF = false        -- Tecla F (Mais Próximo)
 local lockedTargetRight = nil
 local lockedTargetF = nil
 
@@ -42,10 +43,21 @@ overlayF:SetPosition(UDim2.new(0, 20, 0.5, 10))
 
 -- FUNÇÕES DE VALIDAÇÃO
 local function IsEnemy(player)
-    if player == LocalPlayer then return false end
+    if not player or player == LocalPlayer then return false end
     if not Config.TeamCheck then return true end
-    if not player.Team or not LocalPlayer.Team then return true end
-    return player.Team ~= LocalPlayer.Team
+    
+    if player.Neutral then return true end
+    
+    local myTeam = LocalPlayer.Team
+    local myColor = LocalPlayer.TeamColor
+    local targetTeam = player.Team
+    local targetColor = player.TeamColor
+    
+    if targetTeam == myTeam or (targetColor == myColor and myColor ~= nil) then
+        return false
+    end
+    
+    return true
 end
 
 local function IsAlive(character)
@@ -60,7 +72,7 @@ end
 -- ENCONTRAR ALVO NO FOV (ESTRITO)
 local function GetClosestToMouse()
     local target = nil
-    local minDistance = Config.FOV -- Respeita o limite do FOV
+    local minDistance = Config.FOV
 
     for _, player in ipairs(Players:GetPlayers()) do
         if IsEnemy(player) and player.Character and IsAlive(player.Character) then
@@ -80,7 +92,7 @@ local function GetClosestToMouse()
     return target
 end
 
--- ENCONTRAR ALVO MAIS PRÓXIMO (DISTÂNCIA REAL)
+-- ENCONTRAR ALVO MAIS PRÓXIMO (DISTÂNCIA REAL - MUNDO)
 local function GetClosestToPlayer()
     local target = nil
     local minDistance = math.huge
@@ -103,7 +115,7 @@ local function GetClosestToPlayer()
     return target, minDistance
 end
 
--- LOOP DE ATUALIZAÇÃO
+-- LOOP DE ATUALIZAÇÃO (RenderStepped para mira suave e contínua)
 local updateConnection
 local function StartLoop()
     if updateConnection then updateConnection:Disconnect() end
@@ -121,41 +133,51 @@ local function StartLoop()
         circle.Radius = Config.FOV
         circle.Position = UserInputService:GetMouseLocation()
 
-        -- Lógica Botão Direito (FOV)
+        -- LÓGICA DO BOTÃO DIREITO (FOV)
         if aimingRight then
-            lockedTargetRight = GetClosestToMouse()
+            -- Se já temos um alvo e ele ainda é válido, mantemos. Senão, procuramos o melhor.
+            if not (lockedTargetRight and IsEnemy(lockedTargetRight) and lockedTargetRight.Character and IsAlive(lockedTargetRight.Character)) then
+                lockedTargetRight = GetClosestToMouse()
+            end
+            
             if lockedTargetRight and lockedTargetRight.Character then
                 local part = GetTargetPart(lockedTargetRight.Character)
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+                local targetCF = CFrame.new(Camera.CFrame.Position, part.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCF, Config.Smoothing)
             end
         else
             lockedTargetRight = nil
         end
 
-        -- Lógica Tecla F (Próximo)
+        -- LÓGICA DA TECLA F (MAIS PRÓXIMO - RASTREAMENTO CONTÍNUO)
         if aimingF then
-            lockedTargetF = GetClosestToPlayer()
+            -- Para o F, sempre buscamos o mais próximo a cada frame para garantir que ele mude de alvo se outro chegar mais perto
+            local currentClosest, dist = GetClosestToPlayer()
+            lockedTargetF = currentClosest
+            
             if lockedTargetF and lockedTargetF.Character then
                 local part = GetTargetPart(lockedTargetF.Character)
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+                local targetCF = CFrame.new(Camera.CFrame.Position, part.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCF, Config.Smoothing)
             end
         else
             lockedTargetF = nil
         end
 
-        -- Atualiza Painéis
+        -- ATUALIZAÇÃO DOS PAINÉIS
         if Config.ShowPanels then
             if lockedTargetRight then
                 local part = GetTargetPart(lockedTargetRight.Character)
                 local dist = (Camera.CFrame.Position - part.Position).Magnitude
-                overlayRight:Update(lockedTargetRight, dist, "🎯 Alvo Travado")
+                overlayRight:Update(lockedTargetRight, dist, "🎯 FOV Lock")
             else
                 overlayRight:SetVisible(false)
             end
 
             if lockedTargetF then
-                local target, dist = GetClosestToPlayer()
-                overlayF:Update(lockedTargetF, dist, "👑 Prioridade Máxima")
+                local part = GetTargetPart(lockedTargetF.Character)
+                local dist = (Camera.CFrame.Position - part.Position).Magnitude
+                overlayF:Update(lockedTargetF, dist, "👑 Alvo Próximo")
             else
                 overlayF:SetVisible(false)
             end
@@ -166,7 +188,7 @@ local function StartLoop()
     end)
 end
 
--- INPUTS
+-- INPUTS (Uso de InputBegan/Ended para detectar quando as teclas são seguradas)
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -184,7 +206,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- UI CATEGORY
+-- CATEGORIA NA UI
 local MainToggle = AimCategory:AddModule("🔥 Aimbot Master", function(state)
     Config.Enabled = state
     if state then StartLoop() end
@@ -195,10 +217,11 @@ MainToggle:AddToggle("📊 Mostrar Painéis", Config.ShowPanels, function(state)
 MainToggle:AddToggle("👥 Checar Time", Config.TeamCheck, function(state) Config.TeamCheck = state end)
 
 MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val) Config.FOV = val end)
+MainToggle:AddSlider("🌀 Suavização", 1, 10, 2, function(val) Config.Smoothing = val/10 end)
 
 MainToggle:AddDropdown("🎯 Parte do Corpo", {"Head", "HumanoidRootPart"}, function(val)
     Config.AimPart = val
 end)
 
-print("✅ Aimbot V2.0 (FOV Estrito) carregado!")
+print("✅ Aimbot V2.2 (F Rastreamento Contínuo) carregado!")
 return function() if updateConnection then updateConnection:Disconnect() end end
