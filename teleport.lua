@@ -1,4 +1,4 @@
--- ========== TELEPORTE V3 ==========
+-- ========== TELEPORTE V4 ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -9,7 +9,8 @@ local LocalPlayer = Players.LocalPlayer
 local savedCheckpoints = {}
 
 -- Cria uma seção dedicada dentro da categoria de Teleporte para os botões
-local CheckpointSection = TeleportCategory:AddModule("Checkpoints Salvos")
+-- É ESSENCIAL passar uma função (mesmo que vazia) como segundo argumento!
+local CheckpointSection = TeleportCategory:AddModule("Checkpoints Salvos", function() end)
 
 -- Função para adicionar um botão de teleporte à GUI principal
 local function addTeleportButton(name, position)
@@ -56,8 +57,7 @@ local function openSaveMenu()
     title.Font = Enum.Font.SourceSansBold
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.TextOffset = Vector2.new(10, 0)
-    title.BackgroundColor3 = Color3.fromHSV(0,0,0)
-    title.BackgroundTransparency = 1
+    title.BackgroundTransparency = 1 -- Corrigido
     title.Parent = titleBar
 
     local closeButton = Instance.new("TextButton")
@@ -105,10 +105,10 @@ local function openSaveMenu()
 end
 
 -- Botão principal que abre o menu de salvamento
-local SaveModule = TeleportCategory:AddModule("🔧 Gerenciar Pontos")
+local SaveModule = TeleportCategory:AddModule("🔧 Gerenciar Pontos", function() end)
 SaveModule:AddButton("📌 Salvar Ponto Atual", openSaveMenu)
 
-print("✅ Módulo de Teleporte carregado (v3)!")
+print("✅ Módulo de Teleporte carregado (v4)!")
 
 -- Função de limpeza para quando o script for removido
 return function()

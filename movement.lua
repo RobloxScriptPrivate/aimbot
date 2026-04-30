@@ -1,4 +1,4 @@
--- ========== MOVIMENTO (Speed, Noclip, Fly) V3 ==========
+-- ========== MOVIMENTO (Speed, Noclip, Fly) V4 ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
@@ -22,7 +22,8 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ========== MÓDULO: SPEED HACK ==========
-local SpeedModule = MovementCategory:AddModule("🏃 Velocidade")
+-- Cria um módulo com uma função de toggle vazia para conter o slider
+local SpeedModule = MovementCategory:AddModule("🏃 Velocidade", function() end)
 SpeedModule:AddSlider("Velocidade do Personagem", 16, 200, originalWalkSpeed, function(value)
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = value
@@ -30,6 +31,7 @@ SpeedModule:AddSlider("Velocidade do Personagem", 16, 200, originalWalkSpeed, fu
 end)
 
 -- ========== MÓDULO: NOCLIP ==========
+-- O toggle principal do módulo é a própria função noclip
 local function toggleNoclip(state)
     if state then
         if noclipConnection then noclipConnection:Disconnect() end -- Evita múltiplas conexões
@@ -49,8 +51,7 @@ local function toggleNoclip(state)
         end
     end
 end
-local NoclipModule = MovementCategory:AddModule("👻 Noclip (Atravessar)")
-NoclipModule:AddToggle("Ativar Noclip", false, toggleNoclip)
+MovementCategory:AddModule("👻 Noclip (Atravessar)", toggleNoclip)
 
 -- ========== MÓDULO: FLY ==========
 local flyKeys = {
@@ -63,6 +64,7 @@ local flyKeys = {
 }
 local flySpeed = 50
 
+-- O toggle principal do módulo é a função de voar
 local function toggleFly(state)
     if state then
         if flyConnection then flyConnection:Disconnect() end -- Limpeza
@@ -105,11 +107,10 @@ local function toggleFly(state)
     end
 end
 
-local FlyModule = MovementCategory:AddModule("✈️ Fly (Voar)")
-FlyModule:AddToggle("Ativar Voo", false, toggleFly)
+local FlyModule = MovementCategory:AddModule("✈️ Fly (Voar)", toggleFly)
 FlyModule:AddSlider("Velocidade do Voo", 50, 500, flySpeed, function(val) flySpeed = val end)
 
-print("✅ Módulos de Movimento carregados (v3)!")
+print("✅ Módulos de Movimento carregados (v4)!")
 
 -- Função de limpeza geral para o módulo de movimento
 return function()

@@ -1,4 +1,4 @@
--- ========== FREECAM V3 ==========
+-- ========== FREECAM V4 ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
@@ -15,8 +15,9 @@ local freecamSpeed = 50
 
 -- Função para clonar o personagem e prepará-lo para a freecam
 local function createFakeCharacter()
-    if not LocalPlayer.Character then return end
-    
+    -- VERIFICAÇÃO ADICIONADA: Garante que o personagem existe
+    if not LocalPlayer.Character or not LocalPlayer.Character.Parent then return end
+
     originalCharacter = LocalPlayer.Character
     fakeCharacter = originalCharacter:Clone()
     fakeCharacter.Name = "FreecamCharacter"
@@ -28,12 +29,14 @@ local function createFakeCharacter()
             part.CanCollide = false
         end
     end
-    
+
     -- Prende o char original no lugar
-    originalCharacter.HumanoidRootPart.Anchored = true
-    
+    if originalCharacter:FindFirstChild("HumanoidRootPart") then
+      originalCharacter.HumanoidRootPart.Anchored = true
+    end
+
     -- Muda a câmera para o char falso
-    workspace.CurrentCamera.CameraSubject = fakeCharacter.Humanoid
+    workspace.CurrentCamera.CameraSubject = fakeCharacter:FindFirstChildOfClass("Humanoid")
 end
 
 -- Função de movimento da freecam
@@ -56,7 +59,6 @@ local function freecamLoop()
     end
 end
 
-
 -- Ativa/Desativa o modo Freecam
 local function toggleFreecam(state)
     if state then
@@ -69,8 +71,8 @@ local function toggleFreecam(state)
             freecamConnection:Disconnect()
             freecamConnection = nil
         end
-        if originalCharacter and originalCharacter:FindFirstChild("HumanoidRootPart") then
-            workspace.CurrentCamera.CameraSubject = originalCharacter.Humanoid
+        if originalCharacter and originalCharacter.Parent and originalCharacter:FindFirstChild("HumanoidRootPart") then
+            workspace.CurrentCamera.CameraSubject = originalCharacter:FindFirstChildOfClass("Humanoid")
             originalCharacter.HumanoidRootPart.Anchored = false
         end
         if fakeCharacter then
@@ -81,12 +83,11 @@ local function toggleFreecam(state)
     end
 end
 
--- Adiciona o Módulo à categoria de Movimento
-local FreecamModule = MovementCategory:AddModule("📷 Freecam")
-FreecamModule:AddToggle("Ativar Freecam", false, toggleFreecam)
+-- Adiciona o Módulo à categoria de Movimento, usando a função de toggle como segundo argumento
+local FreecamModule = MovementCategory:AddModule("📷 Freecam", toggleFreecam)
 FreecamModule:AddSlider("Velocidade da Freecam", 10, 200, freecamSpeed, function(val) freecamSpeed = val end)
 
-print("✅ Módulo Freecam carregado (v3)!")
+print("✅ Módulo Freecam carregado (v4)!")
 
 -- Função de limpeza
 return function()
