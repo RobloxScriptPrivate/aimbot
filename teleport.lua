@@ -1,131 +1,111 @@
--- ========== TELEPORTE V6 (Dropdown) ==========
+-- ========== TELEPORTE v10 (Usando a nova API de Janelas) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
--- Serviços
+-- Serviços e Variáveis Locais
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Variáveis
-local savedCheckpoints = {} -- Tabela para mapear Nome -> CFrame
-local checkpointNames = {}  -- Tabela para as opções do Dropdown
+-- Tabela para armazenar os checkpoints
+local savedCheckpoints = {}
 
--- Função de teleporte chamada pelo dropdown
-local function doTeleport(name)
-    if savedCheckpoints[name] then
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = savedCheckpoints[name]
-        end
+-- Referência para a nossa janela de teleporte, para não criar múltiplas
+local teleportWindow = nil
+
+-- Função para abrir (ou focar) a janela de gerenciamento de checkpoints
+local function openCheckpointWindow()
+    -- Se a janela já existe, apenas a traga para a frente (ou não faça nada)
+    if teleportWindow and teleportWindow.Frame and teleportWindow.Frame.Parent then
+        return
     end
-end
 
--- Função para abrir o menu de salvar checkpoint
-local function openSaveMenu()
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    if playerGui:FindFirstChild("CheckpointSaveMenu") then return end
+    -- Cria a janela usando a nova API do gui.lua
+    teleportWindow = Library:CreateWindow("📌 Checkpoints", UDim2.new(0, 220, 0, 300))
 
-    -- O código da GUI para o menu de salvar (caixa de texto, etc.) permanece o mesmo
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "CheckpointSaveMenu"
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-    screenGui.Parent = playerGui
+    -- Frame com scroll para a lista de checkpoints
+    local scrollFrame = Instance.new("ScrollingFrame")
+    scrollFrame.Size = UDim2.new(1, 0, 1, -80) -- Deixa espaço para os controles abaixo
+    scrollFrame.Position = UDim2.new(0, 0, 0, 80)
+    scrollFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35) -- Cor um pouco mais escura para contraste
+    scrollFrame.BorderSizePixel = 0
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scrollFrame.Parent = teleportWindow.Content
 
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 250, 0, 140)
-    mainFrame.Position = UDim2.new(0.5, -125, 0.5, -70)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    mainFrame.BorderSizePixel = 1
-    mainFrame.BorderColor3 = Color3.fromRGB(80, 80, 90)
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    mainFrame.Parent = screenGui
+    local listLayout = Instance.new("UIListLayout", scrollFrame)
+    listLayout.Padding = UDim.new(0, 3)
 
-    local titleBar = Instance.new("Frame")
-    titleBar.Size = UDim2.new(1, 0, 0, 25)
-    titleBar.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    titleBar.Parent = mainFrame
+    -- Função para redesenhar os botões na lista de scroll
+    local function redrawCheckpointButtons()
+        -- Limpa a lista antiga
+        for _, child in ipairs(scrollFrame:GetChildren()) do
+            if child:IsA("TextButton") then
+                child:Destroy()
+            end
+        end
 
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 1, 0)
-    title.Text = "Salvar Checkpoint"
-    title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    title.Font = Enum.Font.SourceSansBold
-    title.TextXAlignment = Enum.TextXAlignment.Left
-    title.TextOffset = Vector2.new(10, 0)
-    title.BackgroundTransparency = 1
-    title.Parent = titleBar
+        -- Adiciona um botão para cada checkpoint salvo
+        for _, data in ipairs(savedCheckpoints) do
+            local btn = Instance.new("TextButton")
+            btn.Name = "Checkpoint_" .. data.name
+            btn.Text = "-> " .. data.name
+            btn.Size = UDim2.new(1, -10, 0, 25)
+            btn.Position = UDim2.new(0, 5, 0, 0) -- Posição é gerenciada pelo UIListLayout
+            btn.BackgroundColor3 = Library.Theme.Module
+            btn.TextColor3 = Library.Theme.TextInactive
+            btn.Font = Library.Theme.Font
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            btn.Parent = scrollFrame
 
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, 20, 0, 20)
-    closeButton.Position = UDim2.new(1, -23, 0, 2.5)
-    closeButton.Text = "X"
-    closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.Font = Enum.Font.SourceSansBold
-    closeButton.Parent = titleBar
-    closeButton.MouseButton1Click:Connect(function() screenGui:Destroy() end)
-
-    local nameBox = Instance.new("TextBox")
-    nameBox.Size = UDim2.new(1, -20, 0, 30)
-    nameBox.Position = UDim2.new(0, 10, 0, 40)
-    nameBox.PlaceholderText = "Nome do local"
-    nameBox.Font = Enum.Font.SourceSans
-    nameBox.Parent = mainFrame
-
-    local saveButton = Instance.new("TextButton")
-    saveButton.Size = UDim2.new(1, -20, 0, 40)
-    saveButton.Position = UDim2.new(0, 10, 0, 85)
-    saveButton.Text = "💾 Salvar Posição Atual"
-    saveButton.BackgroundColor3 = Color3.fromRGB(80, 150, 80)
-    saveButton.Font = Enum.Font.SourceSansBold
-    saveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    saveButton.Parent = mainFrame
-
-    saveButton.MouseButton1Click:Connect(function()
-        local name = nameBox.Text
-        if name and name:gsub(" ", "") ~= "" and not savedCheckpoints[name] then
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                local pos = LocalPlayer.Character.HumanoidRootPart.CFrame
-                savedCheckpoints[name] = pos
-
-                -- Se a lista estava com o placeholder, limpa antes de adicionar o primeiro item real
-                if #checkpointNames == 1 and checkpointNames[1] == "<Nenhum>" then
-                    table.remove(checkpointNames, 1)
+            btn.MouseButton1Click:Connect(function()
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = data.pos
+                    print("Teleportado para", data.name)
                 end
-                table.insert(checkpointNames, name)
+            end)
+        end
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #savedCheckpoints * (25 + listLayout.Padding.Offset))
+    end
 
-                print("Checkpoint '" .. name .. "' salvo! O dropdown foi atualizado.")
-                screenGui:Destroy()
+    -- Adiciona os controles à janela usando a API
+    local nameBox = teleportWindow:AddTextBox("Nome do Ponto", function(text)
+        -- A lógica de salvar foi movida para o botão para mais controle
+    end)
+
+    local saveBtn = teleportWindow:AddButton("💾 Salvar Posição", function()
+        local name = nameBox.Text
+        if name and name:gsub(" ", "") ~= "" and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local exists = false
+            for _, data in ipairs(savedCheckpoints) do
+                if data.name == name then exists = true; break; end
+            end
+            if not exists then
+                table.insert(savedCheckpoints, {name = name, pos = LocalPlayer.Character.HumanoidRootPart.CFrame})
+                redrawCheckpointButtons() 
+                nameBox.Text = ""
             end
         end
     end)
+    saveBtn.BackgroundColor3 = Color3.fromRGB(80, 150, 80) -- Cor verde para salvar
+
+    -- Coloca a lista de scroll no final
+    scrollFrame.LayoutOrder = 3
+    nameBox.LayoutOrder = 1
+    saveBtn.LayoutOrder = 2
+
+    -- Desenha os botões iniciais
+    redrawCheckpointButtons()
 end
 
--- CRIAÇÃO DO MÓDULO E CONTROLES
-local teleportModule = TeleportCategory:AddModule("🚀 Teleporte Custom", function(state)
-    -- O toggle principal não precisa fazer nada
-end)
+-- Adiciona o botão ÚNICO que abre a janela de checkpoints
+TeleportCategory:AddModule("🌌 Teleporte", function() end, true) -- Definido como Trigger
+    :AddButton("Abrir Menu de Checkpoints", openCheckpointWindow)
 
--- Adiciona o botão para ABRIR o menu de salvar
-teleportModule:AddButton("📌 Salvar Ponto Atual", openSaveMenu)
 
--- Inicializa a lista com um placeholder se estiver vazia
-if #checkpointNames == 0 then
-    table.insert(checkpointNames, "<Nenhum>")
-end
-
--- Adiciona o dropdown que usa a tabela checkpointNames. A GUI deve atualizar
--- automaticamente quando a tabela for modificada.
-teleportModule:AddDropdown("🚀 Teleportar para", checkpointNames, doTeleport)
-
-print("✅ Módulo de Teleporte carregado (v6)!")
+print("✅ Módulo de Teleporte (v10) com API de Janela carregado.")
 
 -- Função de limpeza
 return function()
-    local playerGui = LocalPlayer and LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        local menu = playerGui:FindFirstChild("CheckpointSaveMenu")
-        if menu then
-            menu:Destroy()
-        end
+    if teleportWindow and teleportWindow.Frame and teleportWindow.Frame.Parent then
+        teleportWindow.Frame:Destroy()
     end
+    print("🧼 Módulo de Teleporte limpo.")
 end
