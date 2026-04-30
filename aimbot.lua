@@ -24,7 +24,7 @@ local lockedTargetFOV = nil  -- Alvo do FOV
 local lockedTargetClose = nil -- Alvo do mais próximo
 local screenCenter = Vector2.new(0, 0)
 
--- ========== ELEMENTOS VISUAIS (Criados diretamente, sem a GUI da biblioteca) ==========
+-- ========== ELEMENTOS VISUAIS ==========
 -- Círculo FOV
 local circle = Drawing.new("Circle")
 circle.Color = Color3.fromRGB(0, 150, 255)
@@ -33,7 +33,7 @@ circle.Filled = false
 circle.Radius = Config.FOV
 circle.Visible = false
 
--- Painéis de informação (criados manualmente pois a biblioteca não tem isso)
+-- Painéis de informação
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "Aimbot_Overlay"
 screenGui.ResetOnSpawn = false
@@ -51,7 +51,6 @@ panelFOV.Visible = false
 panelFOV.Parent = screenGui
 Instance.new("UICorner", panelFOV).CornerRadius = UDim.new(0, 10)
 
--- (Título, avatar, nome, etc. - manter igual ao seu código original)
 local titleFOV = Instance.new("TextLabel")
 titleFOV.Size = UDim2.new(1, 0, 0, 22)
 titleFOV.Position = UDim2.new(0, 0, 0, 0)
@@ -166,7 +165,7 @@ distClose.TextXAlignment = Enum.TextXAlignment.Left
 distClose.BackgroundTransparency = 1
 distClose.Parent = panelClose
 
--- ========== FUNÇÕES (IGUAL AO SEU CÓDIGO ORIGINAL) ==========
+-- ========== FUNÇÕES ==========
 local function IsEnemy(player)
     if player == LocalPlayer then return false end
     if not Config.TeamCheck then return true end
@@ -323,53 +322,7 @@ local function onRightClick(actionName, inputState, inputObject)
     end
 end
 
--- ========== INTEGRAÇÃO COM A BIBLIOTECA GUI ==========
--- Cria categoria COMBAT
-local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
-
--- Módulo principal do Aimbot (Toggle)
-local AimbotModule = Combat:AddModule("🎯 Aimbot", function(state)
-    Config.Enabled = state
-    
-    if Config.Enabled then
-        -- Ativa o aimbot
-        circle.Visible = true
-        ContextActionService:BindActionAtPriority("AimbotRight", onRightClick, false, 1000, Enum.UserInputType.MouseButton2)
-        print("✅ Aimbot ativado! Botão direito = FOV | Tecla F = Mais próximo")
-    else
-        -- Desativa o aimbot
-        circle.Visible = false
-        aimingRight = false
-        aimingF = false
-        lockedTargetFOV = nil
-        lockedTargetClose = nil
-        panelFOV.Visible = false
-        panelClose.Visible = false
-        ContextActionService:UnbindAction("AimbotRight")
-        print("❌ Aimbot desativado")
-    end
-end, false) -- false = toggle mode
-
--- Configurações do Aimbot
-local Settings = Combat:AddModule("⚙️ Aimbot Settings", nil, false)
-
-Settings:AddSlider("🔵 Raio do FOV", 50, 400, Config.FOV, function(value)
-    Config.FOV = value
-    if circle then circle.Radius = value end
-    print("FOV ajustado para:", value)
-end)
-
-Settings:AddDropdown("🎯 Parte do corpo", {"Head", "HumanoidRootPart"}, function(selected)
-    Config.AimPart = selected
-    print("Mirando na parte:", selected)
-end)
-
-Settings:AddToggle("👥 Verificar Time", Config.TeamCheck, function(state)
-    Config.TeamCheck = state
-    print("Team Check:", state and "ON" or "OFF")
-end)
-
--- TECLA F = MIRA MAIS PRÓXIMO (TOGGLE)
+-- ========== TECLA F = MIRA MAIS PRÓXIMO (TOGGLE) ==========
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if not Config.Enabled then return end
@@ -401,7 +354,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- LOOP PRINCIPAL
+-- ========== LOOP PRINCIPAL ==========
 RunService.RenderStepped:Connect(function()
     screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     circle.Position = screenCenter
@@ -464,5 +417,43 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-print("✅ Módulo Aimbot carregado com sucesso!")
-print("👉 Abra o menu com INSERT e vá em COMBAT")
+-- ========== INTEGRAÇÃO COM A BIBLIOTECA GUI (TUDO DENTRO DO MESMO MÓDULO) ==========
+-- Cria categoria COMBAT
+local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
+
+-- Módulo principal do Aimbot (Toggle) COM AS CONFIGURAÇÕES DENTRO
+local Aimbot = Combat:AddModule("🎯 Aimbot", function(state)
+    Config.Enabled = state
+    
+    if Config.Enabled then
+        circle.Visible = true
+        ContextActionService:BindActionAtPriority("AimbotRight", onRightClick, false, 1000, Enum.UserInputType.MouseButton2)
+        print("✅ Aimbot ativado! Botão direito = FOV | Tecla F = Mais próximo")
+    else
+        circle.Visible = false
+        aimingRight = false
+        aimingF = false
+        lockedTargetFOV = nil
+        lockedTargetClose = nil
+        panelFOV.Visible = false
+        panelClose.Visible = false
+        ContextActionService:UnbindAction("AimbotRight")
+        print("❌ Aimbot desativado")
+    end
+end, false)
+
+-- CONFIGURAÇÕES DENTRO DO MESMO MÓDULO (sub-opções)
+Aimbot:AddSlider("🔵 Raio do FOV", 50, 400, Config.FOV, function(value)
+    Config.FOV = value
+    if circle then circle.Radius = value end
+end)
+
+Aimbot:AddDropdown("🎯 Parte do corpo", {"Head", "HumanoidRootPart"}, function(selected)
+    Config.AimPart = selected
+end)
+
+Aimbot:AddToggle("👥 Verificar Time", Config.TeamCheck, function(state)
+    Config.TeamCheck = state
+end)
+
+print("✅ Módulo Aimbot carregado! Pressione INSERT para abrir o menu")
