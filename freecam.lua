@@ -1,83 +1,92 @@
--- ========== FREECAM V1 ==========
+-- ========== FREECAM V2 ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Variáveis
-local freecamActive = false
 local freecamConnection = nil
-local originalCamSubject = nil
-local originalCamType = nil
-local characterAnchor = nil
+local originalCharacter = nil
+local fakeCharacter = nil
+local freecamSpeed = 50
 
--- Função para ativar/desativar a Freecam
-local function toggleFreecam(state)
-    freecamActive = state
-    local char = LocalPlayer.Character
-    local cam = workspace.CurrentCamera
-
-    if state then
-        if not char or not char:FindFirstChild("HumanoidRootPart") then
-            warn("Freecam requer um personagem.")
-            return
+-- Função para clonar o personagem e prepará-lo para a freecam
+local function createFakeCharacter()
+    if not LocalPlayer.Character then return end
+    
+    originalCharacter = LocalPlayer.Character
+    fakeCharacter = originalCharacter:Clone()
+    fakeCharacter.Name = "FreecamCharacter"
+    fakeCharacter.Parent = workspace
+    -- Deixa o char falso invisível e sem colisão
+    for _, part in ipairs(fakeCharacter:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.Transparency = 1
+            part.CanCollide = false
         end
+    end
+    
+    -- Prende o char original no lugar
+    originalCharacter.HumanoidRootPart.Anchored = true
+    
+    -- Muda a câmera para o char falso
+    workspace.CurrentCamera.CameraSubject = fakeCharacter.Humanoid
+end
 
-        -- Salva o estado original da câmera
-        originalCamSubject = cam.CameraSubject
-        originalCamType = cam.CameraType
-        cam.CameraType = Enum.CameraType.Scriptable
+-- Função de movimento da freecam
+local function freecamLoop()
+    local camera = workspace.CurrentCamera
+    local moveVector = Vector3.new()
 
-        -- "Ancora" o personagem no local
-        characterAnchor = char.HumanoidRootPart.CFrame
+    -- Teclas de movimento
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1, 0, 0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1, 0, 0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector = moveVector + Vector3.new(0, -1, 0) end
 
-        -- Conexão para mover a câmera
-        freecamConnection = RunService.RenderStepped:Connect(function()
-            if not freecamActive then return end
+    if fakeCharacter and fakeCharacter:FindFirstChild("HumanoidRootPart") then
+        local newPos = fakeCharacter.HumanoidRootPart.CFrame * CFrame.new(moveVector * (freecamSpeed / 10))
+        fakeCharacter.HumanoidRootPart.CFrame = newPos
+    end
+end
 
-            -- Mantém o personagem no lugar
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = characterAnchor
-            end
-
-            -- Move a câmera
-            local moveSpeed = 5 -- Ajuste se necessário
-            local moveVector = Vector3.new(0, 0, 0)
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector - Vector3.new(0, 0, 1) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - Vector3.new(1, 0, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1, 0, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector = moveVector - Vector3.new(0, 1, 0) end
-
-            cam.CFrame = cam.CFrame * CFrame.new(moveVector * moveSpeed)
-        end)
-
+-- Ativa/Desativa o modo Freecam
+local function toggleFreecam(state)
+    if state then
+        createFakeCharacter()
+        if fakeCharacter then
+            freecamConnection = RunService.RenderStepped:Connect(freecamLoop)
+        end
     else
-        -- Desativa a Freecam
         if freecamConnection then
             freecamConnection:Disconnect()
             freecamConnection = nil
         end
-
-        -- Restaura a câmera
-        if originalCamSubject and originalCamType then
-            cam.CameraType = originalCamType
-            cam.CameraSubject = originalCamSubject
+        if originalCharacter and originalCharacter:FindFirstChild("HumanoidRootPart") then
+            originalCharacter.HumanoidRootPart.Anchored = false
         end
-        characterAnchor = nil
+        if fakeCharacter then
+            fakeCharacter:Destroy()
+            fakeCharacter = nil
+        end
+        workspace.CurrentCamera.CameraSubject = LocalPlayer.Character.Humanoid
+        originalCharacter = nil
     end
 end
 
--- Adiciona o botão ao menu
-MovementCategory:AddToggle("📷 Freecam", false, toggleFreecam)
+-- Adiciona o Módulo à categoria de Movimento
+local FreecamModule = Library:CreateSection(MovementCategory, "📷 Freecam")
+Library:AddToggle(FreecamModule, "Ativar Freecam", false, toggleFreecam)
+Library:AddSlider(FreecamModule, "Velocidade da Freecam", 10, 200, freecamSpeed, function(val) freecamSpeed = val end)
 
-print("✅ Módulo Freecam carregado!")
+print("✅ Módulo Freecam carregado (v2)!")
 
 -- Função de limpeza
 return function()
-    toggleFreecam(false)
+    toggleFreecam(false) -- Garante que tudo é revertido
 end

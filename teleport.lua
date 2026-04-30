@@ -1,4 +1,4 @@
--- ========== TELEPORTE V1 ==========
+-- ========== TELEPORTE V2 ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -6,13 +6,14 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 -- Tabela para guardar os checkpoints
--- Formato: { [nome] = CFrame, ... }
 local savedCheckpoints = {}
+
+-- Cria uma seção dedicada dentro da categoria de Teleporte para os botões
+local CheckpointSection = Library:CreateSection(TeleportCategory, "Checkpoints Salvos")
 
 -- Função para adicionar um botão de teleporte à GUI principal
 local function addTeleportButton(name, position)
-    -- O nome do botão será "TP > " seguido do nome do local
-    TeleportCategory:AddButton("🚀 TP > " .. name, function()
+    Library:AddButton(CheckpointSection, "🚀 TP > " .. name, function()
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             LocalPlayer.Character.HumanoidRootPart.CFrame = position
             print("Teleportado para: " .. name)
@@ -25,7 +26,6 @@ end
 -- Função para abrir o menu de salvar checkpoint
 local function openSaveMenu()
     local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    -- Se o menu já existir, não faz nada
     if playerGui:FindFirstChild("CheckpointSaveMenu") then return end
 
     -- Criação da GUI
@@ -105,10 +105,11 @@ local function openSaveMenu()
 end
 
 -- Botão principal que abre o menu de salvamento
-TeleportCategory:AddButton("📌 Abrir Menu de Checkpoint", openSaveMenu)
+local SaveModule = Library:CreateSection(TeleportCategory, "🔧 Gerenciar Pontos")
+Library:AddButton(SaveModule, "📌 Salvar Ponto Atual", openSaveMenu)
 
 
-print("✅ Módulo de Teleporte carregado!")
+print("✅ Módulo de Teleporte carregado (v2)!")
 
 -- Função de limpeza para quando o script for removido
 return function()
@@ -119,5 +120,5 @@ return function()
             menu:Destroy()
         end
     end
-    -- Os botões de teleporte serão limpos pela própria biblioteca principal
+    -- A biblioteca principal cuidará de limpar os botões e seções.
 end
