@@ -1,4 +1,4 @@
--- ========== TELEPORTE v14 (Gerenciamento por Mapa & Deleção) ==========
+-- ========== TELEPORTE v15 (Correção com Sub-Opção) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -47,16 +47,19 @@ local function addTeleportButton(name, posData)
     -- Converte a tabela de posição de volta para CFrame
     local cf = CFrame.new(unpack(posData))
 
-    -- Cria o módulo com opções para deleção e ordenação
+    -- Cria o módulo. Clique esquerdo teleporta. Clique direito expande.
     local module = TeleportCategory:AddModule(name, function()
         teleportTo(cf)
     end, {
-        isTrigger = true,
-        order = 2, -- Ordem maior para ficar abaixo do botão 'Criar'
-        onRightClick = function()
-            removeTeleportPoint(name)
-        end
+        isTrigger = true, -- Mantém o teleporte no clique esquerdo
+        order = 2 -- Ordem maior para ficar abaixo do botão 'Criar'
+        -- A lógica onRightClick foi REMOVIDA
     })
+
+    -- ADICIONA A SUB-OPÇÃO DE DELETAR, como você sugeriu
+    module:AddButton("Deletar Ponto", function()
+        removeTeleportPoint(name)
+    end)
     
     -- Armazena a referência do módulo para poder deletá-lo depois
     pointModules[name] = module
@@ -68,8 +71,13 @@ for name, data in pairs(savedPositions) do
 end
 
 -- Função para abrir o gerenciador de criação
+-- NOTA: A função CreateWindow foi restaurada na V8.1 da GUI
 local function openTeleportManager()
     local window = Library:CreateWindow("🌌 Novo Ponto", UDim2.new(0, 280, 0, 150))
+    if not window then
+        print("ERRO: Library:CreateWindow não existe na versão atual da GUI.")
+        return
+    end
     local nameInput = window:AddTextBox("Nome do Local...")
     
     window:AddButton("Salvar Posição Atual", function()
@@ -77,7 +85,6 @@ local function openTeleportManager()
         local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         
         if posName and #posName > 0 and root then
-            -- Verifica se o ponto já existe
             if savedPositions[posName] then
                 print("⚠️ Um ponto com o nome '"..posName.."' já existe.")
                 return
@@ -86,13 +93,8 @@ local function openTeleportManager()
             local currentCF = root.CFrame
             local cfTable = {currentCF:GetComponents()}
             
-            -- Salva no cache local
             savedPositions[posName] = cfTable
-            
-            -- Persiste no arquivo JSON específico do mapa
             Library:SaveConfig(CONFIG_NAME, savedPositions)
-            
-            -- Adiciona o botão na lista
             addTeleportButton(posName, cfTable)
             
             print("✅ Ponto '"..posName.."' salvo para este mapa.")
@@ -101,9 +103,9 @@ local function openTeleportManager()
     end)
 end
 
--- Botão principal para criar novos pontos (sempre no topo)
+-- Botão principal para criar novos pontos
 TeleportCategory:AddModule("➕ Criar Novo Ponto", function()
     openTeleportManager()
-end, { isTrigger = true, order = 1 }) -- Ordem 1 para ficar no topo
+end, { isTrigger = true, order = 1 })
 
-print("✅ Módulo de Teleporte v14 (Por Mapa) carregado.")
+print("✅ Módulo de Teleporte v15 (Com Sub-Opção) carregado.")
