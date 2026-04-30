@@ -1,52 +1,74 @@
--- ========== TELEPORTE v12 (UI Corrigida e Simplificada) ==========
+-- ========== TELEPORTE v13 (Instantâneo & Persistente) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
--- Serviços e Variáveis
+-- Serviços
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
-local savedPositions = {}
+-- Nome do arquivo de configuração
+local CONFIG_FILE = "Manus_Teleports"
 
--- Função principal para abrir e gerenciar a janela de teleporte
+-- Carregar posições salvas
+local savedPositions = Library:LoadConfig(CONFIG_FILE) or {}
+
+-- Função para teleporte instantâneo (sem rubber-banding)
+local function teleportTo(pos)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if root then
+        -- Zera a velocidade para evitar que o anticheat puxe de volta por momentum
+        root.Velocity = Vector3.new(0, 0, 0)
+        root.CFrame = pos
+        -- Garante que a velocidade continue zero por um frame
+        task.wait()
+        if root then root.Velocity = Vector3.new(0, 0, 0) end
+    end
+end
+
+-- Função para adicionar botão de teleporte na UI
+local function addTeleportButton(name, pos)
+    TeleportCategory:AddModule(name, function()
+        teleportTo(pos)
+    end, true)
+end
+
+-- Carrega os botões salvos na inicialização
+for name, data in pairs(savedPositions) do
+    -- Converte a tabela de posição de volta para CFrame
+    local cf = CFrame.new(unpack(data))
+    addTeleportButton(name, cf)
+end
+
+-- Função para abrir o gerenciador de criação
 local function openTeleportManager()
-    -- A API CreateWindow agora lida com janelas existentes, então podemos chamar sem medo.
+    local window = Library:CreateWindow("🌌 Novo Ponto", UDim2.new(0, 280, 0, 150))
+    local nameInput = window:AddTextBox("Nome do Local...")
     
-    -- 1. Criar a janela com tamanho reduzido
-    local window = Library:CreateWindow("🌌 Teleporte", UDim2.new(0, 280, 0, 150))
-
-    -- 2. Adicionar os componentes. A UIListLayout e o UIPadding da API já cuidam do alinhamento.
-    local nameInput = window:AddTextBox("Nome do Ponto")
-    local saveButton = window:AddButton("Salvar Posição", function()
+    window:AddButton("Salvar Posição Atual", function()
         local posName = nameInput.Text
-        if posName and #posName > 0 and LocalPlayer.Character and LocalPlayer.Character.HumanoidRootPart then
-            local currentPos = LocalPlayer.Character.HumanoidRootPart.CFrame
-            table.insert(savedPositions, {name = posName, pos = currentPos})
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        if posName and #posName > 0 and root then
+            local currentCF = root.CFrame
+            -- Salva no cache local
+            local cfTable = {currentCF:GetComponents()}
+            savedPositions[posName] = cfTable
             
-            nameInput.Text = "" -- Limpa o campo
+            -- Persiste no arquivo JSON
+            Library:SaveConfig(CONFIG_FILE, savedPositions)
             
-            -- Cria um botão para o novo ponto salvo na categoria de teleporte
-            TeleportCategory:AddModule(posName, function()
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = currentPos
-                    print("Teleportado para", posName)
-                end
-            end, true) -- true para ser um gatilho (trigger)
-
-            print("Posição '"..posName.."' salva.")
-            window.Frame:Destroy() -- Fecha a janela após salvar
+            -- Adiciona o botão na lista
+            addTeleportButton(posName, currentCF)
+            
+            print("✅ Ponto '"..posName.."' salvo permanentemente.")
+            window.Frame:Destroy()
         end
     end)
 end
 
--- Cria o módulo que abre a janela de teleporte
-TeleportCategory:AddModule("Salvar Ponto", function()
+-- Botão principal para criar novos pontos
+TeleportCategory:AddModule("➕ Criar Novo Ponto", function()
     openTeleportManager()
-end, true) -- true para ser um gatilho (trigger)
+end, true)
 
-print("✅ Módulo de Teleporte (v12) carregado.")
-
--- Função de limpeza (boa prática)
-return function()
-    -- A limpeza das janelas agora é gerenciada pela gui.lua
-    print("🧼 Módulo de Teleporte limpo.")
-end
+print("✅ Módulo de Teleporte Persistente (v13) carregado.")

@@ -1,5 +1,5 @@
--- ========== AIMBOT DUPLO MELHORADO V2 ==========
-local Library, Combat = ..., select(2, ...)
+-- ========== AIMBOT DUPLO V2.0 (FOV Estrito & Painéis Dinâmicos) ==========
+local Library, AimCategory = ..., select(2, ...)
 
 -- Serviços
 local Players = game:GetService("Players")
@@ -12,204 +12,193 @@ local LocalPlayer = Players.LocalPlayer
 local Config = {
     Enabled = false,
     AimPart = "Head",
-    FOV = 250,
+    FOV = 150,
     TeamCheck = true,
     ShowFOV = true,
+    ShowPanels = true,
 }
 
--- VARIÁVEIS
-local aimingRight = false
-local aimingF = false
-local lockedTarget = nil
-local inputBeganConn = nil
-local inputEndedConn = nil
-local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-local mouseOverridden = false -- Flag para saber se estamos controlando a câmera
+-- VARIÁVEIS DE ESTADO
+local aimingRight = false    -- Botão Direito
+local aimingF = false        -- Tecla F
+local lockedTargetRight = nil
+local lockedTargetF = nil
 
--- Círculo de FOV
+-- ELEMENTOS VISUAIS (FOV)
 local circle = Drawing.new("Circle")
-circle.Visible = false
-circle.Radius = Config.FOV
 circle.Color = Color3.fromRGB(0, 150, 255)
-circle.Thickness = 1
+circle.Thickness = 1.5
 circle.Filled = false
-circle.Position = screenCenter
+circle.Transparency = 0.7
+circle.Visible = false
 
--- Função de limpeza para desconectar eventos
-local function cleanup()
-    circle.Visible = false
-    if mouseOverridden then
-        RunService:UnbindFromRenderStep("AimbotAim")
-        mouseOverridden = false
-    end
+-- PAINÉIS DE ALVO (Via Library Overlay)
+local overlayRight = Library:CreateOverlay("TargetRight", "🎯 ALVO FOV (Direito)", Color3.fromRGB(0, 150, 255))
+local overlayF = Library:CreateOverlay("TargetF", "👑 ALVO PRÓXIMO (Tecla F)", Color3.fromRGB(0, 255, 120))
+
+-- Posicionamento inicial dos painéis
+overlayRight:SetPosition(UDim2.new(0, 20, 0.5, -90))
+overlayF:SetPosition(UDim2.new(0, 20, 0.5, 10))
+
+-- FUNÇÕES DE VALIDAÇÃO
+local function IsEnemy(player)
+    if player == LocalPlayer then return false end
+    if not Config.TeamCheck then return true end
+    if not player.Team or not LocalPlayer.Team then return true end
+    return player.Team ~= LocalPlayer.Team
 end
 
--- Checa se é um inimigo válido
-local function IsEnemy(player)
-    if not player or player == LocalPlayer or not player:IsA("Player") then return false end
-    if Config.TeamCheck and player.Team and player.Team == LocalPlayer.Team then return false end
-    local character = player.Character
-    if not character then return false end
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
+local function IsAlive(character)
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
     return humanoid and humanoid.Health > 0
 end
 
--- Pega a parte do corpo para mirar
 local function GetTargetPart(character)
     return character:FindFirstChild(Config.AimPart) or character:FindFirstChild("HumanoidRootPart")
 end
 
--- ENCONTRA O MELHOR ALVO
-local function FindBestTarget(isForFKey)
-    local bestTarget = nil
-    local bestMetric = math.huge
+-- ENCONTRAR ALVO NO FOV (ESTRITO)
+local function GetClosestToMouse()
+    local target = nil
+    local minDistance = Config.FOV -- Respeita o limite do FOV
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if not IsEnemy(player) then continue end
-        
-        local targetPart = GetTargetPart(player.Character)
-        if not targetPart then continue end
-        
-        local screenPoint, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
-        if not onScreen or screenPoint.Z <= 0 then continue end
-        
-        local metric
-        if isForFKey then -- Tecla F: Prioriza o mais perto do jogador no mundo 3D
-            metric = (LocalPlayer.Character.HumanoidRootPart.Position - targetPart.Position).Magnitude
-        else -- Botão Direito: Prioriza o mais perto do centro da tela (cursor)
-            metric = (Vector2.new(screenPoint.X, screenPoint.Y) - screenCenter).Magnitude
-            if metric > Config.FOV then continue end -- Só considera alvos dentro do círculo
-        end
-
-        if metric < bestMetric then
-            bestMetric = metric
-            bestTarget = player
+        if IsEnemy(player) and player.Character and IsAlive(player.Character) then
+            local part = GetTargetPart(player.Character)
+            if part then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local mouseDistance = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                    if mouseDistance < minDistance then
+                        minDistance = mouseDistance
+                        target = player
+                    end
+                end
+            end
         end
     end
-    return bestTarget
+    return target
 end
 
--- Função que roda a cada frame para mirar
-local function Aim()    
-    -- Só continua se tivermos um alvo travado
-    if not lockedTarget or not lockedTarget.Parent then
-        RunService:UnbindFromRenderStep("AimbotAim")
-        mouseOverridden = false
-        return
-    end
+-- ENCONTRAR ALVO MAIS PRÓXIMO (DISTÂNCIA REAL)
+local function GetClosestToPlayer()
+    local target = nil
+    local minDistance = math.huge
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not root then return nil end
 
-    local targetPart = GetTargetPart(lockedTarget.Character)
-    if not targetPart or not IsEnemy(lockedTarget) then
-        RunService:UnbindFromRenderStep("AimbotAim")
-        mouseOverridden = false
-        return
+    for _, player in ipairs(Players:GetPlayers()) do
+        if IsEnemy(player) and player.Character and IsAlive(player.Character) then
+            local part = GetTargetPart(player.Character)
+            if part then
+                local dist = (root.Position - part.Position).Magnitude
+                if dist < minDistance then
+                    minDistance = dist
+                    target = player
+                end
+            end
+        end
     end
-
-    -- Impede o Roblox de controlar a câmera enquanto miramos
-    -- Isso é o que para a câmera de se mover com o mouse
-    if not mouseOverridden then
-        RunService:BindToRenderStep("AimbotAim", Enum.RenderPriority.Camera.Value + 1, function()
-            local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
-            Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 0.2) -- Suavização
-        end)
-        mouseOverridden = true
-    end
+    return target, minDistance
 end
 
--- Gerencia os inputs do mouse e teclado
-local function HandleInput(input, gameProcessed)
-    if gameProcessed then return end
+-- LOOP DE ATUALIZAÇÃO
+local updateConnection
+local function StartLoop()
+    if updateConnection then updateConnection:Disconnect() end
+    
+    updateConnection = RunService.RenderStepped:Connect(function()
+        if not Config.Enabled then
+            circle.Visible = false
+            overlayRight:SetVisible(false)
+            overlayF:SetVisible(false)
+            return
+        end
 
-    -- ATIVAÇÃO: Botão direito (mira no FOV)
+        -- Atualiza Círculo FOV
+        circle.Visible = Config.ShowFOV
+        circle.Radius = Config.FOV
+        circle.Position = UserInputService:GetMouseLocation()
+
+        -- Lógica Botão Direito (FOV)
+        if aimingRight then
+            lockedTargetRight = GetClosestToMouse()
+            if lockedTargetRight and lockedTargetRight.Character then
+                local part = GetTargetPart(lockedTargetRight.Character)
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+            end
+        else
+            lockedTargetRight = nil
+        end
+
+        -- Lógica Tecla F (Próximo)
+        if aimingF then
+            lockedTargetF = GetClosestToPlayer()
+            if lockedTargetF and lockedTargetF.Character then
+                local part = GetTargetPart(lockedTargetF.Character)
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+            end
+        else
+            lockedTargetF = nil
+        end
+
+        -- Atualiza Painéis
+        if Config.ShowPanels then
+            if lockedTargetRight then
+                local part = GetTargetPart(lockedTargetRight.Character)
+                local dist = (Camera.CFrame.Position - part.Position).Magnitude
+                overlayRight:Update(lockedTargetRight, dist, "🎯 Alvo Travado")
+            else
+                overlayRight:SetVisible(false)
+            end
+
+            if lockedTargetF then
+                local target, dist = GetClosestToPlayer()
+                overlayF:Update(lockedTargetF, dist, "👑 Prioridade Máxima")
+            else
+                overlayF:SetVisible(false)
+            end
+        else
+            overlayRight:SetVisible(false)
+            overlayF:SetVisible(false)
+        end
+    end)
+end
+
+-- INPUTS
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        if input.UserInputState == Enum.UserInputState.Begin then
-            aimingRight = true
-            -- Tenta achar um alvo inicial
-            lockedTarget = FindBestTarget(false)
-            if lockedTarget then
-                Aim() -- Inicia a mira
-                circle.Color = Color3.fromRGB(255, 0, 0)
-            end
-        elseif input.UserInputState == Enum.UserInputState.End then
-            aimingRight = false
-            lockedTarget = nil
-            RunService:UnbindFromRenderStep("AimbotAim") -- Para de mirar
-            mouseOverridden = false
-            circle.Color = Color3.fromRGB(0, 150, 255)
-        end
-    end
-
-    -- ATIVAÇÃO: Tecla F (mira no mais próximo)
-    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.F then
-        if input.UserInputState == Enum.UserInputState.Begin then
-            aimingF = true
-            lockedTarget = FindBestTarget(true)
-            if lockedTarget then
-                Aim() -- Inicia a mira
-                if Config.ShowFOV then circle.Color = Color3.fromRGB(255, 100, 0) end
-            end
-        elseif input.UserInputState == Enum.UserInputState.End then
-            aimingF = false
-            lockedTarget = nil
-            RunService:UnbindFromRenderStep("AimbotAim") -- Para de mirar
-            mouseOverridden = false
-            if Config.ShowFOV and not aimingRight then circle.Color = Color3.fromRGB(0, 150, 255) end
-        end
-    end
-end
-
-
--- Loop para atualizar o alvo do FOV em tempo real (se nenhum alvo já estiver travado)
-RunService.RenderStepped:Connect(function()
-    if not Config.Enabled then return end
-
-    -- Atualiza centro da tela se a janela mudar de tamanho
-    screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    circle.Position = screenCenter
-
-    -- Se o usuário está segurando o botão direito mas AINDA NÃO travou em ninguém,
-    -- continua procurando um alvo.
-    if aimingRight and not lockedTarget then
-        local newTarget = FindBestTarget(false)
-        if newTarget then
-            lockedTarget = newTarget
-            Aim() -- Trava e começa a mirar
-            circle.Color = Color3.fromRGB(255, 0, 0)
-        end
+        aimingRight = true
+    elseif input.KeyCode == Enum.KeyCode.F then
+        aimingF = true
     end
 end)
 
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aimingRight = false
+    elseif input.KeyCode == Enum.KeyCode.F then
+        aimingF = false
+    end
+end)
 
--- Adiciona o módulo à GUI
-local AimbotModule = Combat:AddModule("🎯 Aimbot", function(state)
+-- UI CATEGORY
+local MainToggle = AimCategory:AddModule("🔥 Aimbot Master", function(state)
     Config.Enabled = state
-    if state then
-        if not inputBeganConn then inputBeganConn = UserInputService.InputBegan:Connect(HandleInput) end
-        if not inputEndedConn then inputEndedConn = UserInputService.InputEnded:Connect(HandleInput) end
-        if Config.ShowFOV then circle.Visible = true end
-    else
-        if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
-        if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
-        cleanup()
-    end
+    if state then StartLoop() end
+end, false)
+
+MainToggle:AddToggle("👁️ Mostrar FOV", Config.ShowFOV, function(state) Config.ShowFOV = state end)
+MainToggle:AddToggle("📊 Mostrar Painéis", Config.ShowPanels, function(state) Config.ShowPanels = state end)
+MainToggle:AddToggle("👥 Checar Time", Config.TeamCheck, function(state) Config.TeamCheck = state end)
+
+MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val) Config.FOV = val end)
+
+MainToggle:AddDropdown("🎯 Parte do Corpo", {"Head", "HumanoidRootPart"}, function(val)
+    Config.AimPart = val
 end)
 
-AimbotModule:AddToggle("🟢 Mostrar FOV", Config.ShowFOV, function(state)
-    Config.ShowFOV = state
-    if Config.Enabled then
-        circle.Visible = state
-    end
-end)
-
-AimbotModule:AddToggle("👥 Checagem de Time", Config.TeamCheck, function(state) Config.TeamCheck = state end)
-
-AimbotModule:AddSlider("⭕ Raio do FOV", 50, 500, Config.FOV, function(val) 
-    Config.FOV = val 
-    circle.Radius = val
-end)
-
-AimbotModule:AddDropdown("🎯 Parte do Corpo", {"Head", "Torso", "HumanoidRootPart"}, function(val) Config.AimPart = val end)
-
-print("✅ Aimbot V2 carregado!")
-
-return cleanup
+print("✅ Aimbot V2.0 (FOV Estrito) carregado!")
+return function() if updateConnection then updateConnection:Disconnect() end end

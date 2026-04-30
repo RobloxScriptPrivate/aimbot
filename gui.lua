@@ -1,4 +1,4 @@
--- Manus GUI Library V4.7 (Visual de Sub-opções Refinado)
+-- Manus GUI Library V4.8 (Overlay Dinâmico & Persistência)
 local Library = {}
 
 -- Serviços
@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
 
 -- Variáveis Locais
 local player = Players.LocalPlayer
@@ -15,13 +16,35 @@ Library.OpenKey = Enum.KeyCode.Insert
 Library.RemoveKey = Enum.KeyCode.K
 Library.Categories = {}
 Library.ActiveWindows = {}
+Library.Overlays = {}
 Library.SettingsOpen = false
+
+--[[
+    Sistema de Persistência (JSON)
+]]
+function Library:SaveConfig(name, data)
+    if writefile then
+        pcall(function()
+            writefile(name .. ".json", HttpService:JSONEncode(data))
+        end)
+    end
+end
+
+function Library:LoadConfig(name)
+    if readfile and isfile and isfile(name .. ".json") then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(name .. ".json"))
+        end)
+        if success then return result end
+    end
+    return nil
+end
 
 --[[
     Inicialização da GUI Principal
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V4_7"
+ScreenGui.Name = "ManusGuiLib_V4_8"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -62,7 +85,111 @@ local function makeDraggable(frame, dragHandle)
 end
 
 --[[
-    Barra Superior (Busca e Configurações)
+    API de Overlay (Painéis de Alvo/Status)
+]]
+function Library:CreateOverlay(id, title, color)
+    if Library.Overlays[id] then return Library.Overlays[id] end
+    
+    local OverlayFrame = Instance.new("Frame")
+    OverlayFrame.Size = UDim2.new(0, 220, 0, 80)
+    OverlayFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    OverlayFrame.BackgroundTransparency = 0.2
+    OverlayFrame.BorderSizePixel = 0
+    OverlayFrame.Visible = false
+    OverlayFrame.Parent = ScreenGui
+    Instance.new("UICorner", OverlayFrame).CornerRadius = UDim.new(0, 8)
+    
+    local Border = Instance.new("Frame")
+    Border.Size = UDim2.new(1, 0, 0, 2)
+    Border.Position = UDim2.new(0, 0, 0, 0)
+    Border.BackgroundColor3 = color or Color3.fromRGB(0, 150, 255)
+    Border.BorderSizePixel = 0
+    Border.Parent = OverlayFrame
+    Instance.new("UICorner", Border)
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, -10, 0, 20)
+    Title.Position = UDim2.new(0, 10, 0, 5)
+    Title.Text = title
+    Title.TextColor3 = color or Color3.fromRGB(0, 150, 255)
+    Title.Font = Enum.Font.SourceSansBold
+    Title.TextSize = 12
+    Title.BackgroundTransparency = 1
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = OverlayFrame
+
+    local Avatar = Instance.new("ImageLabel")
+    Avatar.Size = UDim2.new(0, 40, 0, 40)
+    Avatar.Position = UDim2.new(0, 10, 0, 30)
+    Avatar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    Avatar.Parent = OverlayFrame
+    Instance.new("UICorner", Avatar).CornerRadius = UDim.new(1, 0)
+
+    local NameLabel = Instance.new("TextLabel")
+    NameLabel.Size = UDim2.new(1, -60, 0, 15)
+    NameLabel.Position = UDim2.new(0, 60, 0, 30)
+    NameLabel.Text = "Nenhum"
+    NameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    NameLabel.Font = Enum.Font.SourceSansBold
+    NameLabel.TextSize = 14
+    NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.Parent = OverlayFrame
+
+    local InfoLabel = Instance.new("TextLabel")
+    InfoLabel.Size = UDim2.new(1, -60, 0, 15)
+    InfoLabel.Position = UDim2.new(0, 60, 0, 45)
+    InfoLabel.Text = ""
+    InfoLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    InfoLabel.Font = Enum.Font.SourceSans
+    InfoLabel.TextSize = 12
+    InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+    InfoLabel.BackgroundTransparency = 1
+    InfoLabel.Parent = OverlayFrame
+
+    local DistLabel = Instance.new("TextLabel")
+    DistLabel.Size = UDim2.new(1, -60, 0, 15)
+    DistLabel.Position = UDim2.new(0, 60, 0, 60)
+    DistLabel.Text = ""
+    DistLabel.TextColor3 = color or Color3.fromRGB(0, 150, 255)
+    DistLabel.Font = Enum.Font.SourceSansBold
+    DistLabel.TextSize = 12
+    DistLabel.TextXAlignment = Enum.TextXAlignment.Left
+    DistLabel.BackgroundTransparency = 1
+    DistLabel.Parent = OverlayFrame
+
+    local overlayObj = { Frame = OverlayFrame }
+    
+    function overlayObj:Update(playerObj, distance, info)
+        if not playerObj then
+            OverlayFrame.Visible = false
+            return
+        end
+        OverlayFrame.Visible = true
+        NameLabel.Text = playerObj.DisplayName or playerObj.Name
+        InfoLabel.Text = info or ("@" .. playerObj.Name)
+        DistLabel.Text = distance and (string.format("%.1f", distance) .. "m") or ""
+        
+        task.spawn(function()
+            local thumb = Players:GetUserThumbnailAsync(playerObj.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            Avatar.Image = thumb
+        end)
+    end
+
+    function overlayObj:SetVisible(state)
+        OverlayFrame.Visible = state
+    end
+
+    function overlayObj:SetPosition(pos)
+        OverlayFrame.Position = pos
+    end
+
+    Library.Overlays[id] = overlayObj
+    return overlayObj
+end
+
+--[[
+    Barra Superior e Configurações
 ]]
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
@@ -92,14 +219,10 @@ SettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 SettingsBtn.TextSize = 20
 SettingsBtn.Parent = TopBar
 
---[[
-    Tela de Configurações
-]]
 local SettingsFrame = Instance.new("Frame")
 SettingsFrame.Size = UDim2.new(0, 350, 0, 300)
 SettingsFrame.Position = UDim2.new(0.5, -175, 0.5, -150)
 SettingsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-SettingsFrame.BorderSizePixel = 0
 SettingsFrame.Visible = false
 SettingsFrame.Parent = MainFrame
 Instance.new("UICorner", SettingsFrame)
@@ -135,9 +258,6 @@ KeybindList.Padding = UDim.new(0, 5)
 KeybindList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 KeybindList.Parent = KeybindContainer
 
---[[
-    API de Keybinds
-]]
 function Library:AddKeybind(label, defaultKey, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(0.9, 0, 0, 35)
@@ -404,7 +524,6 @@ function Library:CreateCategory(name, position)
         ModuleBtn.MouseButton1Click:Connect(function() moduleObj:Execute() end)
         ModuleBtn.MouseButton2Click:Connect(function() moduleObj:ToggleSub() end)
 
-        -- API de Subcontroles (Visual Refinado)
         function moduleObj:AddToggle(text, default, subCallback)
             local state = default or false
             local ToggleFrame = Instance.new("Frame")
@@ -416,7 +535,6 @@ function Library:CreateCategory(name, position)
             Btn.Size = UDim2.new(1, 0, 1, 0)
             Btn.BackgroundTransparency = 1
             Btn.Text = "    " .. text
-            -- Verde suave com menos opacidade para diferenciar do módulo principal
             Btn.TextColor3 = state and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160)
             Btn.Font = Enum.Font.SourceSans
             Btn.TextSize = 13
