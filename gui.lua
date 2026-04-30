@@ -1,4 +1,4 @@
--- Manus GUI Library V6.4 (Auto-Resize Fix)
+-- Manus GUI Library V6.5 (Textbox & Font Fix)
 local Library = {}
 
 -- Serviços
@@ -65,7 +65,7 @@ end
     2. INICIALIZAÇÃO DA GUI
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V6_4"
+ScreenGui.Name = "ManusGuiLib_V6_5"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -200,6 +200,10 @@ function Library:CreateWindow(title, size, position)
         local b = Instance.new("TextButton"); b.Size = UDim2.new(0.9, 0, 0, 32); b.BackgroundColor3 = Color3.fromRGB(50, 50, 50); b.TextColor3 = Color3.fromRGB(220, 220, 220); b.Text = text; b.TextSize = 14; b.Font = Enum.Font.SourceSansBold; b.Parent = ContentFrame; Instance.new("UICorner", b)
         b.MouseButton1Click:Connect(callback); return b
     end
+    function windowObj:AddTextBox(placeholder)
+        local tb = Instance.new("TextBox"); tb.Size = UDim2.new(0.9, 0, 0, 32); tb.BackgroundColor3 = Color3.fromRGB(35, 35, 35); tb.TextColor3 = Color3.fromRGB(255, 255, 255); tb.PlaceholderText = placeholder or ""; tb.Text = ""; tb.TextSize = 14; tb.Font = Enum.Font.SourceSans; tb.Parent = ContentFrame; Instance.new("UICorner", tb)
+        return tb
+    end
     return windowObj
 end
 
@@ -256,16 +260,16 @@ function Library:CreateCategory(name, position)
         
         function moduleObj:AddToggle(t, d, c)
             local s = d or false
-            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    " .. t; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); b.Font = Enum.Font.SourceSans; b.TextSize = 12; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 1; b.Parent = SubFrame
+            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    " .. t; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); b.Font = Enum.Font.SourceSans; b.TextSize = 11; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 1; b.Parent = SubFrame
             b.MouseButton1Click:Connect(function() s = not s; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160); c(s) end)
         end
         function moduleObj:AddDropdown(t, o, c)
-            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    > " .. t .. ": " .. tostring(o[1]); b.TextColor3 = Color3.fromRGB(180, 180, 180); b.Font = Enum.Font.SourceSans; b.TextSize = 12; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 2; b.Parent = SubFrame
+            local b = Instance.new("TextButton"); b.Size = UDim2.new(1, 0, 0, 20); b.BackgroundTransparency = 1; b.Text = "    > " .. t .. ": " .. tostring(o[1]); b.TextColor3 = Color3.fromRGB(180, 180, 180); b.Font = Enum.Font.SourceSans; b.TextSize = 11; b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 2; b.Parent = SubFrame
             local i = 1; b.MouseButton1Click:Connect(function() i = i + 1; if i > #o then i = 1 end; b.Text = "    > " .. t .. ": " .. tostring(o[i]); c(o[i]) end)
         end
         function moduleObj:AddSlider(t, min, max, d, c)
             local f = Instance.new("Frame"); f.Size = UDim2.new(1, 0, 0, 30); f.BackgroundTransparency = 1; f.LayoutOrder = 3; f.Parent = SubFrame
-            local l = Instance.new("TextLabel"); l.Size = UDim2.new(1, 0, 0, 15); l.Text = "    " .. t .. ": " .. tostring(d); l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.TextSize = 12; l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
+            local l = Instance.new("TextLabel"); l.Size = UDim2.new(1, 0, 0, 15); l.Text = "    " .. t .. ": " .. tostring(d); l.TextColor3 = Color3.fromRGB(180, 180, 180); l.BackgroundTransparency = 1; l.TextSize = 11; l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
             local bar = Instance.new("Frame"); bar.Size = UDim2.new(0.8, 0, 0, 4); bar.Position = UDim2.new(0.1, 0, 0.7, 0); bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60); bar.Parent = f
             local fill = Instance.new("Frame"); fill.Size = UDim2.new((d-min)/(max-min), 0, 1, 0); fill.BackgroundColor3 = Color3.fromRGB(0, 120, 200); fill.Parent = bar
             local function up(input)
