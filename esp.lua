@@ -40,11 +40,15 @@ end
 -- Mesma função de validação dos outros scripts
 local function IsValidTarget(player)
     if not player or player == LocalPlayer then return false end
+    
+    -- Se estiver na Whitelist, não desenha como inimigo
+    if Library:IsWhitelisted(player) then return false end
+
     if Config.TeamCheck then
         if not player.Neutral then
             local myTeam = LocalPlayer.Team
             local myColor = LocalPlayer.TeamColor
-            if player.Team == myTeam or player.TeamColor == myColor then
+            if player.Team == myTeam or (player.TeamColor == myColor and myColor ~= nil) then
                 return false
             end
         end

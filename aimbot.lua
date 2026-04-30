@@ -44,8 +44,14 @@ overlayF:SetPosition(UDim2.new(0, 20, 0.5, 10))
 -- FUNÇÕES DE VALIDAÇÃO
 local function IsEnemy(player)
     if not player or player == LocalPlayer then return false end
+    
+    -- Se o jogador estiver na Whitelist manual da Library, ele NÃO é inimigo
+    if Library:IsWhitelisted(player) then return false end
+    
     if not Config.TeamCheck then return true end
     
+    -- Checagem universal: se o jogo for FFA (Neutro), todos são inimigos
+    -- A menos que estejam na Whitelist manual
     if player.Neutral then return true end
     
     local myTeam = LocalPlayer.Team
@@ -53,6 +59,7 @@ local function IsEnemy(player)
     local targetTeam = player.Team
     local targetColor = player.TeamColor
     
+    -- Checagem de Time e Cor de Time (Padrão)
     if targetTeam == myTeam or (targetColor == myColor and myColor ~= nil) then
         return false
     end
@@ -222,6 +229,19 @@ MainToggle:AddSlider("🌀 Suavização", 1, 10, 2, function(val) Config.Smoothi
 MainToggle:AddDropdown("🎯 Parte do Corpo", {"Head", "HumanoidRootPart"}, function(val)
     Config.AimPart = val
 end)
+
+MainToggle:AddModule("🛡️ Gerenciar Whitelist", function()
+    local window = Library:CreateWindow("🛡️ Whitelist de Jogadores", UDim2.new(0, 300, 0, 250))
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local isW = Library:IsWhitelisted(p)
+            window:AddButton((isW and "[WL] " or "") .. p.DisplayName, function()
+                Library:ToggleWhitelist(p)
+                window.Frame:Destroy() -- Fecha para atualizar
+            end)
+        end
+    end
+end, true)
 
 print("✅ Aimbot V2.2 (F Rastreamento Contínuo) carregado!")
 return function() if updateConnection then updateConnection:Disconnect() end end

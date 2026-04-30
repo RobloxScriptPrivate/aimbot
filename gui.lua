@@ -18,6 +18,8 @@ Library.Categories = {}
 Library.ActiveWindows = {}
 Library.Overlays = {}
 Library.SettingsOpen = false
+Library.Whitelist = {}
+Library.AllyColors = {}
 
 --[[
     Sistema de Persistência (JSON)
@@ -38,6 +40,17 @@ function Library:LoadConfig(name)
         if success then return result end
     end
     return nil
+end
+
+function Library:IsWhitelisted(player)
+    if not player then return false end
+    return Library.Whitelist[player.UserId] or false
+end
+
+function Library:ToggleWhitelist(player)
+    if not player then return end
+    Library.Whitelist[player.UserId] = not Library.Whitelist[player.UserId]
+    return Library.Whitelist[player.UserId]
 end
 
 --[[
