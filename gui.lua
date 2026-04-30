@@ -1,4 +1,4 @@
--- Manus GUI Library V6.3 (Final Fix & Original Style)
+-- Manus GUI Library V6.4 (Auto-Resize Fix)
 local Library = {}
 
 -- Serviços
@@ -65,7 +65,7 @@ end
     2. INICIALIZAÇÃO DA GUI
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V6_3"
+ScreenGui.Name = "ManusGuiLib_V6_4"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -238,6 +238,7 @@ function Library:CreateCategory(name, position)
             for _, v in pairs(OptionsFrame:GetChildren()) do if v:IsA("Frame") then totalHeight = totalHeight + v.Size.Y.Offset end end
             OptionsFrame.Size = UDim2.new(1, 0, 0, totalHeight)
         end
+        updateSizes() -- FIX: Call once to set initial size
         subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSizes)
         
         ModuleBtn.MouseButton1Click:Connect(function()
