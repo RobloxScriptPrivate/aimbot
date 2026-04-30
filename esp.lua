@@ -4,6 +4,7 @@ local Library, Visual = ..., select(2, ...)
 -- Serviços
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 

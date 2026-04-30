@@ -5,6 +5,7 @@ local Library, MovementCategory = ..., select(2, ...)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local flyConnection = nil
 local noclipConnection = nil
@@ -35,10 +36,10 @@ local flyModule = MovementCategory:AddModule("✈️ Fly", function(enabled)
             bodyGyro.CFrame = cameraCF
 
             local moveVector = Vector3.new()
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - cameraCF.RightVector end
-            if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + cameraCF.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector - cameraCF.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + cameraCF.RightVector end
 
             if moveVector.Magnitude > 0 then
                 bodyVelocity.Velocity = cameraCF:VectorToWorldSpace(moveVector.Unit) * speed

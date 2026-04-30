@@ -1,9 +1,9 @@
--- Manus GUI Library V4.3 (Correção Crítica de CreateCategory)
-
+-- Manus GUI Library V4.4 (Restaurada e Corrigida)
 local Library = {}
 
 -- Serviços
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
@@ -15,14 +15,13 @@ Library.OpenKey = Enum.KeyCode.Insert
 Library.RemoveKey = Enum.KeyCode.K
 Library.Categories = {}
 Library.ActiveWindows = {}
-Library.PendingBinds = {}
+Library.SettingsOpen = false
 
 --[[
     Inicialização da GUI Principal
 ]]
-
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V4_3"
+ScreenGui.Name = "ManusGuiLib_V4_4"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -39,7 +38,6 @@ MainFrame.Parent = ScreenGui
 --[[
     Funções Utilitárias
 ]]
-
 local function makeDraggable(frame, dragHandle)
     local dragging, dragInput, dragStart, startPos
     dragHandle.InputBegan:Connect(function(input)
@@ -64,9 +62,144 @@ local function makeDraggable(frame, dragHandle)
 end
 
 --[[
-    API de Janelas (CreateWindow e componentes)
+    Barra Superior (Busca e Configurações)
 ]]
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(0, 450, 0, 40)
+TopBar.Position = UDim2.new(0.5, -225, 0, 20)
+TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+TopBar.Parent = MainFrame
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 6)
 
+local SearchBox = Instance.new("TextBox")
+SearchBox.Size = UDim2.new(0.8, -10, 0.7, 0)
+SearchBox.Position = UDim2.new(0.05, 0, 0.15, 0)
+SearchBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+SearchBox.PlaceholderText = "Pesquisar módulos..."
+SearchBox.Text = ""
+SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SearchBox.Font = Enum.Font.SourceSans
+SearchBox.TextSize = 16
+SearchBox.Parent = TopBar
+
+local SettingsBtn = Instance.new("TextButton")
+SettingsBtn.Size = UDim2.new(0.1, 0, 0.7, 0)
+SettingsBtn.Position = UDim2.new(0.87, 0, 0.15, 0)
+SettingsBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SettingsBtn.Text = "⚙️"
+SettingsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsBtn.TextSize = 20
+SettingsBtn.Parent = TopBar
+
+--[[
+    Tela de Configurações
+]]
+local SettingsFrame = Instance.new("Frame")
+SettingsFrame.Size = UDim2.new(0, 350, 0, 300)
+SettingsFrame.Position = UDim2.new(0.5, -175, 0.5, -150)
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+SettingsFrame.BorderSizePixel = 0
+SettingsFrame.Visible = false
+SettingsFrame.Parent = MainFrame
+Instance.new("UICorner", SettingsFrame)
+
+local SettingsTitle = Instance.new("TextLabel")
+SettingsTitle.Size = UDim2.new(1, 0, 0, 40)
+SettingsTitle.Text = "Configurações & Keybinds"
+SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+SettingsTitle.Font = Enum.Font.SourceSansBold
+SettingsTitle.TextSize = 20
+SettingsTitle.Parent = SettingsFrame
+
+local CloseSettings = Instance.new("TextButton")
+CloseSettings.Size = UDim2.new(0, 40, 0, 40)
+CloseSettings.Position = UDim2.new(1, -40, 0, 0)
+CloseSettings.Text = "X"
+CloseSettings.TextColor3 = Color3.fromRGB(255, 50, 50)
+CloseSettings.BackgroundTransparency = 1
+CloseSettings.TextSize = 20
+CloseSettings.Parent = SettingsFrame
+
+local KeybindContainer = Instance.new("ScrollingFrame")
+KeybindContainer.Size = UDim2.new(1, 0, 1, -40)
+KeybindContainer.Position = UDim2.new(0, 0, 0, 40)
+KeybindContainer.BackgroundTransparency = 1
+KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+KeybindContainer.ScrollBarThickness = 2
+KeybindContainer.Parent = SettingsFrame
+
+local KeybindList = Instance.new("UIListLayout")
+KeybindList.Padding = UDim.new(0, 5)
+KeybindList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+KeybindList.Parent = KeybindContainer
+
+--[[
+    API de Keybinds
+]]
+function Library:AddKeybind(label, defaultKey, callback)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0.9, 0, 0, 35)
+    Frame.BackgroundTransparency = 1
+    Frame.Parent = KeybindContainer
+    
+    local TextLabel = Instance.new("TextLabel")
+    TextLabel.Size = UDim2.new(0.6, 0, 1, 0)
+    TextLabel.Text = label
+    TextLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TextLabel.Font = Enum.Font.SourceSans
+    TextLabel.TextSize = 16
+    TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.Parent = Frame
+    
+    local BindBtn = Instance.new("TextButton")
+    BindBtn.Size = UDim2.new(0.35, 0, 0.8, 0)
+    BindBtn.Position = UDim2.new(0.65, 0, 0.1, 0)
+    BindBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    BindBtn.Text = defaultKey and defaultKey.Name or "None"
+    BindBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    BindBtn.Font = Enum.Font.SourceSansBold
+    BindBtn.Parent = Frame
+    
+    local currentKey = defaultKey
+    local binding = false
+    
+    BindBtn.MouseButton1Click:Connect(function()
+        binding = true
+        BindBtn.Text = "..."
+    end)
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if binding and input.UserInputType == Enum.UserInputType.Keyboard then
+            binding = false
+            currentKey = input.KeyCode
+            BindBtn.Text = currentKey.Name
+            if callback then callback(currentKey, false) end
+        elseif not gameProcessed and currentKey and input.KeyCode == currentKey then
+            if callback then callback(currentKey, true) end
+        end
+    end)
+    
+    KeybindContainer.CanvasSize = UDim2.new(0, 0, 0, KeybindList.AbsoluteContentSize.Y + 10)
+end
+
+SettingsBtn.MouseButton1Click:Connect(function()
+    Library.SettingsOpen = not Library.SettingsOpen
+    SettingsFrame.Visible = Library.SettingsOpen
+    for _, cat in pairs(Library.Categories) do cat.Visible = not Library.SettingsOpen end
+end)
+
+CloseSettings.MouseButton1Click:Connect(function()
+    Library.SettingsOpen = false
+    SettingsFrame.Visible = false
+    for _, cat in pairs(Library.Categories) do cat.Visible = true end
+end)
+
+--[[
+    API de Janelas (CreateWindow)
+]]
 function Library:CreateWindow(title, size, position)
     if Library.ActiveWindows[title] and Library.ActiveWindows[title].Frame.Parent then
         Library.ActiveWindows[title].Frame:Destroy()
@@ -76,13 +209,6 @@ function Library:CreateWindow(title, size, position)
     local WindowFrame = Instance.new("Frame")
     local ContentFrame = Instance.new("Frame")
 
-    -- Estilos
-    local FONT = Enum.Font.SourceSans
-    local FONT_BOLD = Enum.Font.SourceSansBold
-    local TEXT_SIZE_BODY = 16
-    local TEXT_SIZE_TITLE = 18
-    local PADDING = 10
-    
     WindowFrame.Name = title
     WindowFrame.Size = size or UDim2.new(0, 350, 0, 250)
     WindowFrame.Position = position or UDim2.new(0.5, -175, 0.5, -125)
@@ -97,20 +223,18 @@ function Library:CreateWindow(title, size, position)
     TitleBar.Text = title
     TitleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    TitleBar.Font = FONT_BOLD
-    TitleBar.TextSize = TEXT_SIZE_TITLE
+    TitleBar.Font = Enum.Font.SourceSansBold
+    TitleBar.TextSize = 18
     TitleBar.Parent = WindowFrame
 
     local CloseButton = Instance.new("TextButton")
-    CloseButton.Name = "CloseButton"
     CloseButton.Size = UDim2.new(0, 40, 1, 0)
     CloseButton.Position = UDim2.new(1, -40, 0, 0)
     CloseButton.Text = "X"
     CloseButton.TextColor3 = Color3.fromRGB(255, 80, 80)
     CloseButton.BackgroundTransparency = 1
     CloseButton.TextSize = 22
-    CloseButton.Font = FONT_BOLD
-    CloseButton.ZIndex = 2
+    CloseButton.Font = Enum.Font.SourceSansBold
     CloseButton.Parent = TitleBar
     CloseButton.MouseButton1Click:Connect(function()
         windowObj.Frame:Destroy()
@@ -118,14 +242,15 @@ function Library:CreateWindow(title, size, position)
     end)
 
     ContentFrame.Name = "Content"
-    ContentFrame.Size = UDim2.new(1, 0, 1, -TitleBar.Size.Y.Offset)
-    ContentFrame.Position = UDim2.new(0, 0, 0, TitleBar.Size.Y.Offset)
+    ContentFrame.Size = UDim2.new(1, 0, 1, -40)
+    ContentFrame.Position = UDim2.new(0, 0, 0, 40)
     ContentFrame.BackgroundTransparency = 1
     ContentFrame.Parent = WindowFrame
     
-    Instance.new("UIListLayout", ContentFrame).Padding = UDim.new(0, 8)
-    Instance.new("UIPadding", ContentFrame).PaddingTop = UDim.new(0, PADDING)
-    Instance.new("UIPadding", ContentFrame).PaddingBottom = UDim.new(0, PADDING)
+    local layout = Instance.new("UIListLayout", ContentFrame)
+    layout.Padding = UDim.new(0, 8)
+    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    Instance.new("UIPadding", ContentFrame).PaddingTop = UDim.new(0, 10)
 
     windowObj.Frame = WindowFrame
     windowObj.Content = ContentFrame
@@ -136,13 +261,12 @@ function Library:CreateWindow(title, size, position)
 
     function windowObj:AddButton(text, callback)
         local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(1, -2*PADDING, 0, 35)
-        Button.Position = UDim2.new(0, PADDING, 0, 0)
+        Button.Size = UDim2.new(0.9, 0, 0, 35)
         Button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
         Button.TextColor3 = Color3.fromRGB(220, 220, 220)
         Button.Text = text
-        Button.TextSize = TEXT_SIZE_BODY
-        Button.Font = FONT_BOLD
+        Button.TextSize = 16
+        Button.Font = Enum.Font.SourceSansBold
         Button.Parent = ContentFrame
         Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
         if callback then Button.MouseButton1Click:Connect(callback) end
@@ -151,14 +275,13 @@ function Library:CreateWindow(title, size, position)
 
     function windowObj:AddTextBox(placeholder)
         local TextBox = Instance.new("TextBox")
-        TextBox.Size = UDim2.new(1, -2*PADDING, 0, 40)
-        TextBox.Position = UDim2.new(0, PADDING, 0, 0)
+        TextBox.Size = UDim2.new(0.9, 0, 0, 40)
         TextBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
         TextBox.PlaceholderText = placeholder or ""
         TextBox.Text = ""
         TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-        TextBox.TextSize = TEXT_SIZE_BODY
-        TextBox.Font = FONT
+        TextBox.TextSize = 16
+        TextBox.Font = Enum.Font.SourceSans
         TextBox.Parent = ContentFrame
         Instance.new("UICorner", TextBox).CornerRadius = UDim.new(0, 4)
         return TextBox
@@ -168,25 +291,7 @@ function Library:CreateWindow(title, size, position)
 end
 
 --[[
-    Barra Superior (Busca e Configurações)
-]]
-
-local TopBar = Instance.new("Frame")
-TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(0, 450, 0, 40)
-TopBar.Position = UDim2.new(0.5, -225, 0, 20)
-TopBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-TopBar.Parent = MainFrame
--- ... (resto da barra superior igual)
-
---[[
-    Sistema de Keybinds e Janela de Configurações
-]]
-
--- ... (código dos keybinds e janela de configurações igual)
-
---[[
-    Sistema de Categorias e Módulos (CORRIGIDO)
+    Sistema de Categorias e Módulos
 ]]
 function Library:CreateCategory(name, position)
     local CategoryFrame = Instance.new("Frame")
@@ -250,9 +355,28 @@ function Library:CreateCategory(name, position)
         ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left
         ModuleBtn.Parent = ModuleContainer
 
-        local function updateCategorySize()
+        local SubFrame = Instance.new("Frame")
+        SubFrame.Size = UDim2.new(1, 0, 0, 0)
+        SubFrame.Position = UDim2.new(0, 0, 0, 25)
+        SubFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        SubFrame.BorderSizePixel = 0
+        SubFrame.Visible = false
+        SubFrame.ClipsDescendants = true
+        SubFrame.Parent = ModuleContainer
+        local subLayout = Instance.new("UIListLayout", SubFrame)
+        
+        local function updateSizes()
+            local subHeight = 0
+            if SubFrame.Visible then
+                for _, v in pairs(SubFrame:GetChildren()) do
+                    if v:IsA("Frame") then subHeight = subHeight + v.Size.Y.Offset end
+                end
+            end
+            SubFrame.Size = UDim2.new(1, 0, 0, subHeight)
+            ModuleContainer.Size = UDim2.new(1, 0, 0, 25 + subHeight)
+            
             local totalHeight = 0
-            for _, v in ipairs(OptionsFrame:GetChildren()) do
+            for _, v in pairs(OptionsFrame:GetChildren()) do
                 if v:IsA("Frame") then totalHeight = totalHeight + v.Size.Y.Offset end
             end
             OptionsFrame.Size = UDim2.new(1, 0, 0, totalHeight)
@@ -264,12 +388,117 @@ function Library:CreateCategory(name, position)
             else
                 self.Enabled = not self.Enabled
                 ModuleBtn.TextColor3 = self.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
+                SubFrame.Visible = self.Enabled
+                updateSizes()
                 if callback then callback(self.Enabled) end
             end
         end
 
         ModuleBtn.MouseButton1Click:Connect(function() moduleObj:Execute() end)
-        updateCategorySize()
+
+        -- API de Subcontroles
+        function moduleObj:AddToggle(text, default, subCallback)
+            local state = default or false
+            local ToggleFrame = Instance.new("Frame")
+            ToggleFrame.Size = UDim2.new(1, 0, 0, 25)
+            ToggleFrame.BackgroundTransparency = 1
+            ToggleFrame.Parent = SubFrame
+            
+            local Btn = Instance.new("TextButton")
+            Btn.Size = UDim2.new(1, 0, 1, 0)
+            Btn.BackgroundTransparency = 1
+            Btn.Text = "    [ " .. (state and "X" or " ") .. " ] " .. text
+            Btn.TextColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 180)
+            Btn.Font = Enum.Font.SourceSans
+            Btn.TextSize = 14
+            Btn.TextXAlignment = Enum.TextXAlignment.Left
+            Btn.Parent = ToggleFrame
+            
+            Btn.MouseButton1Click:Connect(function()
+                state = not state
+                Btn.Text = "    [ " .. (state and "X" or " ") .. " ] " .. text
+                Btn.TextColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(180, 180, 180)
+                if subCallback then subCallback(state) end
+            end)
+            updateSizes()
+        end
+
+        function moduleObj:AddSlider(text, min, max, default, subCallback)
+            local SliderFrame = Instance.new("Frame")
+            SliderFrame.Size = UDim2.new(1, 0, 0, 40)
+            SliderFrame.BackgroundTransparency = 1
+            SliderFrame.Parent = SubFrame
+            
+            local Label = Instance.new("TextLabel")
+            Label.Size = UDim2.new(1, 0, 0, 20)
+            Label.Text = "    " .. text .. ": " .. tostring(default)
+            Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+            Label.BackgroundTransparency = 1
+            Label.Font = Enum.Font.SourceSans
+            Label.TextSize = 14
+            Label.TextXAlignment = Enum.TextXAlignment.Left
+            Label.Parent = SliderFrame
+            
+            local Bar = Instance.new("Frame")
+            Bar.Size = UDim2.new(0.8, 0, 0, 5)
+            Bar.Position = UDim2.new(0.1, 0, 0.7, 0)
+            Bar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+            Bar.Parent = SliderFrame
+            
+            local Fill = Instance.new("Frame")
+            local percent = (default - min) / (max - min)
+            Fill.Size = UDim2.new(percent, 0, 1, 0)
+            Fill.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+            Fill.Parent = Bar
+            
+            local function update(input)
+                local pos = math.clamp((input.Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X, 0, 1)
+                Fill.Size = UDim2.new(pos, 0, 1, 0)
+                local val = math.floor(min + (pos * (max - min)))
+                Label.Text = "    " .. text .. ": " .. tostring(val)
+                if subCallback then subCallback(val) end
+            end
+            
+            local dragging = false
+            Bar.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true update(input) end
+            end)
+            UserInputService.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then update(input) end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+            end)
+            updateSizes()
+        end
+
+        function moduleObj:AddDropdown(text, options, subCallback)
+            local DropdownFrame = Instance.new("Frame")
+            DropdownFrame.Size = UDim2.new(1, 0, 0, 25)
+            DropdownFrame.BackgroundTransparency = 1
+            DropdownFrame.Parent = SubFrame
+            
+            local Btn = Instance.new("TextButton")
+            Btn.Size = UDim2.new(1, 0, 1, 0)
+            Btn.BackgroundTransparency = 1
+            Btn.Text = "    > " .. text .. ": " .. tostring(options[1])
+            Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+            Btn.Font = Enum.Font.SourceSans
+            Btn.TextSize = 14
+            Btn.TextXAlignment = Enum.TextXAlignment.Left
+            Btn.Parent = DropdownFrame
+            
+            local currentIdx = 1
+            Btn.MouseButton1Click:Connect(function()
+                currentIdx = currentIdx + 1
+                if currentIdx > #options then currentIdx = 1 end
+                Btn.Text = "    > " .. text .. ": " .. tostring(options[currentIdx])
+                if subCallback then subCallback(options[currentIdx]) end
+            end)
+            updateSizes()
+        end
+
+        updateSizes()
         return moduleObj
     end
     

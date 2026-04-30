@@ -21,6 +21,8 @@ local Config = {
 local aimingRight = false
 local aimingF = false
 local lockedTarget = nil
+local inputBeganConn = nil
+local inputEndedConn = nil
 local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 local mouseOverridden = false -- Flag para saber se estamos controlando a câmera
 
@@ -182,12 +184,12 @@ end)
 local AimbotModule = Combat:AddModule("🎯 Aimbot", function(state)
     Config.Enabled = state
     if state then
-        UserInputService.InputBegan:Connect(HandleInput)
-        UserInputService.InputEnded:Connect(HandleInput)
+        if not inputBeganConn then inputBeganConn = UserInputService.InputBegan:Connect(HandleInput) end
+        if not inputEndedConn then inputEndedConn = UserInputService.InputEnded:Connect(HandleInput) end
         if Config.ShowFOV then circle.Visible = true end
     else
-        UserInputService.InputBegan:Disconnect(HandleInput)
-        UserInputService.InputEnded:Disconnect(HandleInput)
+        if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
+        if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
         cleanup()
     end
 end)
