@@ -1,5 +1,5 @@
 -- ========== LOADER PRINCIPAL (100% REMOTO) ==========
-print("🔧 Iniciando carregamento remoto v5...")
+print("🔧 Iniciando carregamento remoto v6...")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -31,7 +31,7 @@ task.wait(0.5)
 local Combat = Library:CreateCategory("⚔️ Combat", UDim2.new(0, 10, 0, 60))
 local Visual = Library:CreateCategory("👁️ Visual", UDim2.new(0, 10, 0, 100))
 local Movement = Library:CreateCategory("🏃 Movimento", UDim2.new(0, 10, 0, 140))
-local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, 10, 0, 180)) -- NOVA CATEGORIA
+local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, 10, 0, 180))
 print("✅ Categorias criadas.")
 
 task.wait(0.2)
@@ -60,7 +60,8 @@ local cleanupAimbot = LoadModule("aimbot.lua", Combat)
 local cleanupESP = LoadModule("esp.lua", Visual)
 local cleanupNametag = LoadModule("nametag.lua", Visual)
 local cleanupMovement = LoadModule("movement.lua", Movement)
-local cleanupTeleport = LoadModule("teleport.lua", Teleport) -- NOVO MÓDULO
+local cleanupTeleport = LoadModule("teleport.lua", Teleport)
+local cleanupFreecam = LoadModule("freecam.lua", Movement) -- NOVO MÓDULO DE FREECAM
 
 -- Função de limpeza completa
 local function FullCleanup()
@@ -69,7 +70,8 @@ local function FullCleanup()
     if cleanupESP and type(cleanupESP) == 'function' then cleanupESP() end
     if cleanupNametag and type(cleanupNametag) == 'function' then cleanupNametag() end
     if cleanupMovement and type(cleanupMovement) == 'function' then cleanupMovement() end
-    if cleanupTeleport and type(cleanupTeleport) == 'function' then cleanupTeleport() end -- LIMPEZA DO NOVO MÓDULO
+    if cleanupTeleport and type(cleanupTeleport) == 'function' then cleanupTeleport() end
+    if cleanupFreecam and type(cleanupFreecam) == 'function' then cleanupFreecam() end -- LIMPEZA DO NOVO MÓDULO
     print("✅ Todos os módulos removidos!")
 end
 
