@@ -1,4 +1,4 @@
--- ========== AIMBOT DUPLO V2.5 (Integração GUI V6.0) ==========
+-- ========== AIMBOT DUPLO V2.6 (Modo de Atalho Configurável) ==========
 local Library, AimCategory = ..., select(2, ...)
 
 -- Serviços
@@ -17,11 +17,13 @@ local Config = {
     ShowFOV = true,
     ShowPanels = true,
     Smoothing = 0.2,
+    F_KeyMode = "Pressionar", -- Novo: "Pressionar" ou "Alternar"
 }
 
 -- VARIÁVEIS DE ESTADO
 local aimingRight = false
 local aimingF = false
+local f_key_toggled = false -- Novo: Estado de toggle para a tecla F
 local lockedTargetRight = nil
 local lockedTargetF = nil
 
@@ -117,6 +119,11 @@ local function StartLoop()
         circle.Radius = Config.FOV
         circle.Position = UserInputService:GetMouseLocation()
 
+        -- Atualiza o estado de mira da tecla F baseado no modo
+        if Config.F_KeyMode == "Alternar" then
+            aimingF = f_key_toggled
+        end
+
         if aimingRight then
             if not (lockedTargetRight and IsEnemy(lockedTargetRight) and lockedTargetRight.Character and IsAlive(lockedTargetRight.Character)) then
                 lockedTargetRight = GetClosestToMouse()
@@ -156,12 +163,22 @@ end
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then aimingRight = true
-    elseif input.KeyCode == Enum.KeyCode.F then aimingF = true end
+    elseif input.KeyCode == Enum.KeyCode.F then
+        if Config.F_KeyMode == "Pressionar" then
+            aimingF = true
+        else -- Modo Alternar
+            f_key_toggled = not f_key_toggled
+        end
+    end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton2 then aimingRight = false
-    elseif input.KeyCode == Enum.KeyCode.F then aimingF = false end
+    elseif input.KeyCode == Enum.KeyCode.F then
+        if Config.F_KeyMode == "Pressionar" then
+            aimingF = false
+        end
+    end
 end)
 
 -- UI CATEGORY (ORDEM ORGANIZADA)
@@ -177,10 +194,11 @@ MainToggle:AddToggle("📊 Mostrar Painéis", Config.ShowPanels, function(state)
 
 -- 2. DROPDOWNS
 MainToggle:AddDropdown("🎯 Parte do Corpo", {"Head", "HumanoidRootPart"}, function(val) Config.AimPart = val end)
+MainToggle:AddDropdown(" F Atalho", {"Pressionar", "Alternar"}, function(val) Config.F_KeyMode = val end)
 
 -- 3. SLIDERS
 MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val) Config.FOV = val end)
 MainToggle:AddSlider("🌀 Suavização", 1, 10, 2, function(val) Config.Smoothing = val/10 end)
 
-print("✅ Aimbot V2.5 (GUI V6.0) carregado!")
+print("✅ Aimbot V2.6 (GUI V6.0) carregado!")
 return function() if updateConnection then updateConnection:Disconnect() end end
