@@ -1,14 +1,15 @@
 -- ========== LOADER PRINCIPAL (100% REMOTO) ==========
-print("🔧 Iniciando carregamento remoto v6...")
+print("🔧 Iniciando carregamento remoto v7 (com anti-cache)...")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
--- Função para buscar e carregar código da URL
+-- Função para buscar e carregar código da URL, com sistema anti-cache
 local function fetch(file)
-    local url = BASE_URL .. file
+    -- Adicionar um parâmetro de tempo aleatório quebra o cache do Roblox
+    local url = BASE_URL .. file .. "?t=" .. tick()
     local success, content = pcall(function() return game:HttpGet(url) end)
     if success and content then
-        print("✅ Conteúdo de '"..file.."' baixado.")
+        print("✅ Conteúdo de '"..file.."' baixado (sem cache).")
         return content
     else
         print("❌ Falha ao baixar '"..file.."' da URL: " .. url)
@@ -61,7 +62,7 @@ local cleanupESP = LoadModule("esp.lua", Visual)
 local cleanupNametag = LoadModule("nametag.lua", Visual)
 local cleanupMovement = LoadModule("movement.lua", Movement)
 local cleanupTeleport = LoadModule("teleport.lua", Teleport)
-local cleanupFreecam = LoadModule("freecam.lua", Movement) -- NOVO MÓDULO DE FREECAM
+local cleanupFreecam = LoadModule("freecam.lua", Movement)
 
 -- Função de limpeza completa
 local function FullCleanup()
@@ -71,7 +72,7 @@ local function FullCleanup()
     if cleanupNametag and type(cleanupNametag) == 'function' then cleanupNametag() end
     if cleanupMovement and type(cleanupMovement) == 'function' then cleanupMovement() end
     if cleanupTeleport and type(cleanupTeleport) == 'function' then cleanupTeleport() end
-    if cleanupFreecam and type(cleanupFreecam) == 'function' then cleanupFreecam() end -- LIMPEZA DO NOVO MÓDULO
+    if cleanupFreecam and type(cleanupFreecam) == 'function' then cleanupFreecam() end
     print("✅ Todos os módulos removidos!")
 end
 
