@@ -1,23 +1,29 @@
--- ========== TELEPORTE V5 (Padrão Aimbot) ==========
+-- ========== TELEPORTE V6 (Dropdown) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Tabela para guardar os checkpoints
-local savedCheckpoints = {}
-local teleportModule = nil -- Placeholder para o módulo da GUI
+-- Variáveis
+local savedCheckpoints = {} -- Tabela para mapear Nome -> CFrame
+local checkpointNames = {}  -- Tabela para as opções do Dropdown
+
+-- Função de teleporte chamada pelo dropdown
+local function doTeleport(name)
+    if savedCheckpoints[name] then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = savedCheckpoints[name]
+        end
+    end
+end
 
 -- Função para abrir o menu de salvar checkpoint
 local function openSaveMenu()
-    -- Se o módulo não foi criado ainda, não faz nada.
-    if not teleportModule then return end
-
     local playerGui = LocalPlayer:WaitForChild("PlayerGui")
     if playerGui:FindFirstChild("CheckpointSaveMenu") then return end
 
-    -- (O código da GUI para o menu de salvar permanece o mesmo)
+    -- O código da GUI para o menu de salvar (caixa de texto, etc.) permanece o mesmo
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "CheckpointSaveMenu"
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
@@ -80,28 +86,38 @@ local function openSaveMenu()
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 local pos = LocalPlayer.Character.HumanoidRootPart.CFrame
                 savedCheckpoints[name] = pos
-                -- Adiciona o botão ao módulo principal
-                teleportModule:AddButton("🚀 TP > " .. name, function()
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = pos
-                    end
-                end)
+
+                -- Se a lista estava com o placeholder, limpa antes de adicionar o primeiro item real
+                if #checkpointNames == 1 and checkpointNames[1] == "<Nenhum>" then
+                    table.remove(checkpointNames, 1)
+                end
+                table.insert(checkpointNames, name)
+
+                print("Checkpoint '" .. name .. "' salvo! O dropdown foi atualizado.")
                 screenGui:Destroy()
             end
         end
     end)
 end
 
--- CRIAÇÃO DO MÓDULO PRINCIPAL (seguindo o padrão do aimbot.lua)
--- A função de toggle principal apenas ativa/desativa o módulo, não precisa fazer nada a mais.
-teleportModule = TeleportCategory:AddModule("🚀 Teleporte Custom", function(state)
-    -- A lógica é controlada pelos botões, então o toggle principal pode não fazer nada.
+-- CRIAÇÃO DO MÓDULO E CONTROLES
+local teleportModule = TeleportCategory:AddModule("🚀 Teleporte Custom", function(state)
+    -- O toggle principal não precisa fazer nada
 end)
 
--- Adiciona o botão de salvar ao módulo principal
+-- Adiciona o botão para ABRIR o menu de salvar
 teleportModule:AddButton("📌 Salvar Ponto Atual", openSaveMenu)
 
-print("✅ Módulo de Teleporte carregado (v5)!")
+-- Inicializa a lista com um placeholder se estiver vazia
+if #checkpointNames == 0 then
+    table.insert(checkpointNames, "<Nenhum>")
+end
+
+-- Adiciona o dropdown que usa a tabela checkpointNames. A GUI deve atualizar
+-- automaticamente quando a tabela for modificada.
+teleportModule:AddDropdown("🚀 Teleportar para", checkpointNames, doTeleport)
+
+print("✅ Módulo de Teleporte carregado (v6)!")
 
 -- Função de limpeza
 return function()
