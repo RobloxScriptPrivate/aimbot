@@ -1,4 +1,4 @@
--- ========== TELEPORTE v15.2 (Com Ferramenta de Debug) ==========
+-- ========== TELEPORTE v16 (Estrutura de Opções Corrigida) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -7,10 +7,8 @@ local LocalPlayer = Players.LocalPlayer
 local CurrentPlaceId = tostring(game.PlaceId)
 
 -- Configuração
-local CONFIG_FILE = "Manus_Teleports_V4" -- Mantemos V4 por enquanto
+local CONFIG_FILE = "Manus_Teleports_V4"
 local allSavedPositions = Library:LoadConfig(CONFIG_FILE) or {}
-
--- Garante que o container para o mapa atual exista e seja uma tabela (array)
 if not allSavedPositions[CurrentPlaceId] or type(allSavedPositions[CurrentPlaceId]) ~= 'table' then
     allSavedPositions[CurrentPlaceId] = {}
 end
@@ -31,28 +29,37 @@ end
 
 -- Função para redesenhar todos os botões de teleporte
 local function refreshTeleportUI()
+    -- Limpa os módulos antigos da UI
     for _, module in ipairs(teleportModules) do
         if module and module.Destroy then module:Destroy() end
     end
     teleportModules = {}
 
+    -- Cria novos módulos usando a nova estrutura de opções
     for i, data in ipairs(currentMapPositions) do
         local name = data.name
         local posData = data.position
         local cf = CFrame.new(unpack(posData))
-        local module = TeleportCategory:AddModule(name, function() teleportTo(cf) end)
 
-        module:AddButton("Remover", function()
-            table.remove(currentMapPositions, i)
-            Library:SaveConfig(CONFIG_FILE, allSavedPositions)
+        -- CORREÇÃO: Cria a sub-opção "Remover" dentro de uma tabela de opções
+        local options = {}
+        options["Remover"] = function()
+            table.remove(currentMapPositions, i) -- Remove da lista local
+            Library:SaveConfig(CONFIG_FILE, allSavedPositions) -- Salva a estrutura principal
             print("❌ Ponto '"..name.."' removido.")
-            refreshTeleportUI()
-        end)
+            refreshTeleportUI() -- Redesenha a UI para refletir a remoção
+        end
+
+        -- Passa a tabela de opções para a função AddModule
+        local module = TeleportCategory:AddModule(name, function() 
+            teleportTo(cf) 
+        end, options) -- Assumindo a assinatura (nome, callback, opções)
+
         table.insert(teleportModules, module)
     end
 end
 
--- Função para abrir a janela de criação
+-- Função para abrir a janela de criação de ponto
 local function openTeleportManager()
     local window = Library:CreateWindow("🌌 Novo Ponto", UDim2.new(0, 280, 0, 150))
     local nameInput = window:AddTextBox("Nome do Local...")
@@ -77,21 +84,7 @@ TeleportCategory:AddModule("➕ Criar Novo Ponto", function()
     openTeleportManager()
 end, true)
 
--- ### FERRAMENTA DE DEBUG ###
-TeleportCategory:AddModule("🔍 Inspecionar Cache", function()
-    if type(inspect) == 'function' then
-        print("--- Cache de Teleporte Ativo ---")
-        print(inspect(allSavedPositions))
-        print("--- Fim do Cache ---")
-        warn("Copiado para a área de transferência! Cole no arquivo Manus_Teleports_V4.json")
-        setclipboard(inspect(allSavedPositions)) -- Tenta copiar para o clipboard
-    else
-        warn("Função 'inspect' não encontrada. Não é possível depurar.")
-    end
-end, true)
-
-
--- Carregamento inicial dos pontos do mapa atual
+-- Carregamento inicial
 refreshTeleportUI()
 
-print("✅ Módulo de Teleporte Avançado (v15.2) carregado.")
+print("✅ Módulo de Teleporte Avançado (v16) carregado.")
