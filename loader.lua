@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v12 - Cleanup Global) ==========
-print("🔧 Iniciando carregamento remoto v12. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v13 - Hitbox Module) ==========
+print("🔧 Iniciando carregamento remoto v13. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -78,6 +78,7 @@ end
 
 local cleanupFuncs = {}
 cleanupFuncs.aimbot   = LoadModule("aimbot.lua",   Combat)
+cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
 cleanupFuncs.esp      = LoadModule("esp.lua",      Visual)
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
