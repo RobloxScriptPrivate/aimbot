@@ -1,4 +1,4 @@
--- ========== AIMBOT DUPLO V2.7 (Cleanup Completo + Config Persistente) ==========
+-- ========== AIMBOT DUPLO V2.8 (Suavização Padrão Ajustada) ==========
 local Library, AimCategory = ..., select(2, ...)
 
 -- Serviços
@@ -14,13 +14,13 @@ local Config = {
     AimPart    = "Head",
     FOV        = 150,
     TeamCheck  = true,
-    ShowFOV    = false,  -- padrão false: só mostra se o usuário ativar
+    ShowFOV    = false,
     ShowPanels = true,
-    Smoothing  = 0.2,
+    Smoothing  = 0.9,  -- << VALOR ALTERADO AQUI (era 0.2)
     F_KeyMode  = "Pressionar",
 }
 
--- Carrega config salva (só campos numéricos/string/bool, ignora Enabled)
+-- Carrega config salva
 local saved = Library:LoadConfig("aimbot")
 if saved then
     if type(saved.AimPart)    == "string"  then Config.AimPart    = saved.AimPart    end
@@ -137,23 +137,31 @@ local function StartLoop()
 
         if Config.F_KeyMode == "Alternar" then aimingF = f_key_toggled end
 
+        local function Aim(target)
+            if target and target.Character then
+                local part = GetTargetPart(target.Character)
+                -- Usar um valor maior para suavização torna a mira mais RÁPIDA
+                local aimSpeed = Config.Smoothing
+                if aimSpeed >= 1 then
+                    -- Se for 1 ou mais, trava instantaneamente
+                    Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
+                else
+                    Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), aimSpeed)
+                end
+            end
+        end
+
         if aimingRight then
             if not (lockedTargetRight and IsEnemy(lockedTargetRight)
                     and lockedTargetRight.Character and IsAlive(lockedTargetRight.Character)) then
                 lockedTargetRight = GetClosestToMouse()
             end
-            if lockedTargetRight and lockedTargetRight.Character then
-                local part = GetTargetPart(lockedTargetRight.Character)
-                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Config.Smoothing)
-            end
+            Aim(lockedTargetRight)
         else lockedTargetRight = nil end
 
         if aimingF then
-            lockedTargetF = GetClosestToPlayer()
-            if lockedTargetF and lockedTargetF.Character then
-                local part = GetTargetPart(lockedTargetF.Character)
-                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), Config.Smoothing)
-            end
+            lockedTargetF, _ = GetClosestToPlayer()
+            Aim(lockedTargetF)
         else lockedTargetF = nil end
 
         if Config.ShowPanels then
@@ -173,7 +181,7 @@ local function StartLoop()
     end)
 end
 
--- CONEXÕES DE INPUT — guardadas em variável para desconectar no cleanup
+-- CONEXÕES DE INPUT
 local inputBeganConn = UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
@@ -220,30 +228,23 @@ MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val)
     Config.FOV = val; Save()
 end)
 MainToggle:AddSlider("🌀 Suavização", 1, 10, math.floor(Config.Smoothing * 10), function(val)
-    Config.Smoothing = val / 10; Save()
+    -- Garante que o valor está entre 0.1 e 1.0
+    Config.Smoothing = math.clamp(val / 10, 0.1, 1.0)
+    Save()
 end)
 
-print("✅ Aimbot V2.7 carregado!")
+print("✅ Aimbot V2.8 (Suavização Rápida) carregado!")
 
--- CLEANUP COMPLETO ao pressionar K
+-- CLEANUP
 return function()
-    -- Zera estado imediatamente para que o loop pare de desenhar
     Config.Enabled = false
     aimingRight    = false
     aimingF        = false
     f_key_toggled  = false
-    lockedTargetRight = nil
-    lockedTargetF     = nil
-    -- Esconde o circulo antes de parar o loop
-    pcall(function() circle.Visible = false end)
-    -- Para o loop de RenderStepped
     if updateConnection then updateConnection:Disconnect(); updateConnection = nil end
-    -- Desconecta os inputs de mouse e teclado
     if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
     if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
-    -- Esconde overlays
+    pcall(function() circle:Remove() end)
     pcall(function() overlayRight:SetVisible(false) end)
     pcall(function() overlayF:SetVisible(false) end)
-    -- Remove Drawing object com segurança
-    pcall(function() circle:Remove() end)
 end
