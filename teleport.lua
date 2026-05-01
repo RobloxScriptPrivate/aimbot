@@ -1,4 +1,4 @@
--- ========== TELEPORTE v25 (Corrige Recarga da UI na Remoção) ==========
+-- ========== TELEPORTE v26 (Abordagem de Painel de Ação) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -34,35 +34,47 @@ local function refreshTeleportUI()
     end
     teleportModules = {}
 
-    for i, data in ipairs(currentMapPositions) do
-        local name = data.name
-        local posData = data.position
-        local cf = CFrame.new(unpack(posData))
-        local teleModule
+    -- Função que cria o painel de ação para um ponto específico
+    local function createActionWindow(pointData)
+        local pointName = pointData.name
+        local cf = CFrame.new(unpack(pointData.position))
 
-        teleModule = TeleportCategory:AddModule(name, function(state) 
-            if state then
-                teleModule:Set(false)
-                teleportTo(cf)
-            end
-        end, false)
+        local window = Library:CreateWindow("Ação: " .. pointName, UDim2.new(0.5, -140, 0.5, -90), UDim2.new(0, 280, 0, 180))
 
-        -- CORREÇÃO v25: A remoção e recarga da UI são adiadas para evitar conflitos.
-        local removeToggle
-        removeToggle = teleModule:AddToggle("❌ Remover", false, function(state)
-            if state then
-                -- PASSO 1: Desliga o toggle imediatamente para a UI não travar.
-                removeToggle:Set(false)
-                
-                -- PASSO 2: Adia o resto da lógica para o próximo ciclo, saindo do contexto do callback atual.
-                task.defer(function()
-                    table.remove(currentMapPositions, i)
-                    Library:SaveConfig(CONFIG_FILE, allSavedPositions)
-                    print("❌ Ponto '"..name.."' removido.")
-                    refreshTeleportUI()
-                end)
-            end
+        window:AddButton("➡️ Ir Agora", function()
+            teleportTo(cf)
+            window.Frame:Destroy()
         end)
+
+        window:AddButton("❌ Remover", function()
+            -- Procura e remove o ponto da tabela principal de forma segura
+            for i, p in ipairs(currentMapPositions) do
+                if p == pointData then
+                    table.remove(currentMapPositions, i)
+                    break
+                end
+            end
+            Library:SaveConfig(CONFIG_FILE, allSavedPositions)
+            print("❌ Ponto '"..pointName.."' removido.")
+            window.Frame:Destroy()
+            refreshTeleportUI() -- Agora é seguro recarregar
+        end)
+
+        window:AddButton("Cancelar", function()
+            window.Frame:Destroy()
+        end)
+    end
+
+    -- Loop principal que cria os botões na categoria
+    for _, data in ipairs(currentMapPositions) do
+        -- Captura a referência da `data` para esta iteração
+        local pointDataForButton = data
+
+        -- PASSO 1: Cria um BOTÃO SIMPLES (`true` no final). Ele não tem estado "verde".
+        local teleModule = TeleportCategory:AddModule(pointDataForButton.name, function() 
+            -- PASSO 2: O clique abre o painel de ação, em vez de tentar fazer a ação diretamente.
+            createActionWindow(pointDataForButton)
+        end, true)
 
         table.insert(teleportModules, teleModule)
     end
@@ -70,7 +82,7 @@ end
 
 -- Função para abrir a janela de criação de ponto
 local function openTeleportManager()
-    local window = Library:CreateWindow("🌌 Novo Ponto", UDim2.new(0, 280, 0, 150))
+    local window = Library:CreateWindow("🌌 Novo Ponto", UDim2.new(0.5, -140, 0.5, -75), UDim2.new(0, 280, 0, 150))
     local nameInput = window:AddTextBox("Nome do Local...")
     
     window:AddButton("Salvar Posição Atual", function()
@@ -96,4 +108,4 @@ end, true)
 -- Carregamento inicial
 refreshTeleportUI()
 
-print("✅ Módulo de Teleporte Avançado (v25) carregado.")
+print("✅ Módulo de Teleporte Avançado (v26) carregado.")
