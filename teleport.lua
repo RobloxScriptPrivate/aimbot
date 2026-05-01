@@ -1,4 +1,4 @@
--- ========== TELEPORTE v16 (Estrutura de Opções Corrigida) ==========
+-- ========== TELEPORTE v17 (Padrão de UI Corrigido) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -35,27 +35,28 @@ local function refreshTeleportUI()
     end
     teleportModules = {}
 
-    -- Cria novos módulos usando a nova estrutura de opções
+    -- Cria novos módulos usando o padrão CORRETO do aimbot.lua
     for i, data in ipairs(currentMapPositions) do
         local name = data.name
         local posData = data.position
         local cf = CFrame.new(unpack(posData))
 
-        -- CORREÇÃO: Cria a sub-opção "Remover" dentro de uma tabela de opções
-        local options = {}
-        options["Remover"] = function()
+        -- 1. Cria o módulo como um TOGGLE (terceiro argumento `false`) para permitir sub-opções.
+        -- A função de callback vai IGNORAR o estado de toggle e simplesmente teleportar, agindo como um botão.
+        local teleModule = TeleportCategory:AddModule(name, function() 
+            teleportTo(cf) 
+        end, false) -- O `false` é a chave para permitir sub-opções!
+
+        -- 2. Adiciona a sub-opção "Remover" ao módulo que acabamos de criar.
+        -- Usamos AddButton, que é o tipo de sub-opção correto aqui.
+        teleModule:AddButton("Remover", function()
             table.remove(currentMapPositions, i) -- Remove da lista local
             Library:SaveConfig(CONFIG_FILE, allSavedPositions) -- Salva a estrutura principal
             print("❌ Ponto '"..name.."' removido.")
             refreshTeleportUI() -- Redesenha a UI para refletir a remoção
-        end
+        end)
 
-        -- Passa a tabela de opções para a função AddModule
-        local module = TeleportCategory:AddModule(name, function() 
-            teleportTo(cf) 
-        end, options) -- Assumindo a assinatura (nome, callback, opções)
-
-        table.insert(teleportModules, module)
+        table.insert(teleportModules, teleModule)
     end
 end
 
@@ -79,7 +80,7 @@ local function openTeleportManager()
     end)
 end
 
--- Botão principal para criar novos pontos
+-- Botão principal para criar novos pontos (este é um botão simples, sem sub-opções)
 TeleportCategory:AddModule("➕ Criar Novo Ponto", function()
     openTeleportManager()
 end, true)
@@ -87,4 +88,4 @@ end, true)
 -- Carregamento inicial
 refreshTeleportUI()
 
-print("✅ Módulo de Teleporte Avançado (v16) carregado.")
+print("✅ Módulo de Teleporte Avançado (v17) carregado.")
