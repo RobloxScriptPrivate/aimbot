@@ -431,7 +431,7 @@ function Library:CreateCategory(name, position)
             local b = Instance.new("TextButton")
             b.Size = UDim2.new(1, 0, 0, 18)
             b.BackgroundTransparency = 1
-            b.Text = "  > " .. t .. ": " .. tostring(o[1])
+            b.Text = "  " .. t .. ": " .. tostring(o[1])
             b.TextColor3 = Color3.fromRGB(180, 180, 180)
             b.Font = Enum.Font.SourceSans
             b.TextSize = 12
@@ -441,7 +441,7 @@ function Library:CreateCategory(name, position)
             local i = 1
             b.MouseButton1Click:Connect(function()
                 i = i + 1; if i > #o then i = 1 end
-                b.Text = "  > " .. t .. ": " .. tostring(o[i]); c(o[i])
+                b.Text = "  " .. t .. ": " .. tostring(o[i]); c(o[i])
             end)
         end
 
