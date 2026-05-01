@@ -1,148 +1,193 @@
--- ========== ESP V3 (Box + Tracer corrigidos) ==========
+-- ========== ESP V4 (Skeleton + Outline) ==========
 local Library, Visual = ..., select(2, ...)
 
--- Serviços
-local Players = game:GetService("Players")
+local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
+local Camera     = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
+-- ──────────────────────────────────────────────
 -- CONFIGURAÇÕES
+-- ──────────────────────────────────────────────
 local Config = {
-    Enabled = false,
-    Boxes = true,
-    Tracers = false,
+    Enabled   = false,
+    Skeleton  = true,   -- linhas de graveto
+    Outline   = false,  -- contorno das partes
+    Tracers   = false,  -- linha do chão até o alvo
     TeamCheck = true,
-    TracerStartPoint = "Bottom",
 }
 
--- VARIÁVEIS — cada jogador tem { box, tracer }
+-- ──────────────────────────────────────────────
+-- CONEXÕES DE OSSOS (Skeleton)
+-- Cada par = {partePai, parteFilha}
+-- ──────────────────────────────────────────────
+local BONE_PAIRS = {
+    -- Coluna / tronco
+    {"Head",             "UpperTorso"},
+    {"UpperTorso",       "LowerTorso"},
+    -- Braço esquerdo
+    {"UpperTorso",       "LeftUpperArm"},
+    {"LeftUpperArm",     "LeftLowerArm"},
+    {"LeftLowerArm",     "LeftHand"},
+    -- Braço direito
+    {"UpperTorso",       "RightUpperArm"},
+    {"RightUpperArm",    "RightLowerArm"},
+    {"RightLowerArm",    "RightHand"},
+    -- Perna esquerda
+    {"LowerTorso",       "LeftUpperLeg"},
+    {"LeftUpperLeg",     "LeftLowerLeg"},
+    {"LeftLowerLeg",     "LeftFoot"},
+    -- Perna direita
+    {"LowerTorso",       "RightUpperLeg"},
+    {"RightUpperLeg",    "RightLowerLeg"},
+    {"RightLowerLeg",    "RightFoot"},
+}
+
+-- Partes para o Outline (contorno de cada parte do corpo)
+local OUTLINE_PARTS = {
+    "Head", "UpperTorso", "LowerTorso",
+    "LeftUpperArm", "LeftLowerArm", "LeftHand",
+    "RightUpperArm", "RightLowerArm", "RightHand",
+    "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+    "RightUpperLeg", "RightLowerLeg", "RightFoot",
+}
+
+-- ──────────────────────────────────────────────
+-- ESTADO DE DESENHO POR JOGADOR
+-- drawings[player] = {
+--   bones   = { Line, Line, ... }  (#BONE_PAIRS linhas)
+--   outlines= { Square, ... }      (#OUTLINE_PARTS caixas)
+--   tracer  = Line
+-- }
+-- ──────────────────────────────────────────────
 local drawings = {}
 
--- ──────────────────────────────────────────────
--- Helpers de desenho
--- ──────────────────────────────────────────────
-local function newBox()
-    local d = Drawing.new("Square")
-    d.Visible = false
-    d.Filled = false
-    d.Thickness = 1.5
-    d.Color = Color3.fromRGB(255, 255, 0)
-    return d
-end
-
-local function newLine()
+local function newLine(thickness)
     local d = Drawing.new("Line")
-    d.Visible = false
-    d.Thickness = 1.5
-    d.Color = Color3.fromRGB(255, 255, 0)
+    d.Visible   = false
+    d.Thickness = thickness or 1.5
+    d.Color     = Color3.fromRGB(255, 255, 255)
     return d
 end
 
-local function getOrCreate(player)
-    if not drawings[player] then
-        drawings[player] = { box = newBox(), tracer = newLine() }
+local function newSquare()
+    local d = Drawing.new("Square")
+    d.Visible   = false
+    d.Filled    = false
+    d.Thickness = 1
+    d.Color     = Color3.fromRGB(255, 255, 255)
+    return d
+end
+
+local function allocPlayer(player)
+    if drawings[player] then return drawings[player] end
+    local d = { bones = {}, outlines = {}, tracer = newLine(1.5) }
+    for i = 1, #BONE_PAIRS do
+        d.bones[i] = newLine(1.5)
     end
-    return drawings[player]
+    for i = 1, #OUTLINE_PARTS do
+        d.outlines[i] = newSquare()
+    end
+    drawings[player] = d
+    return d
 end
 
 local function hidePlayer(player)
     local d = drawings[player]
-    if d then
-        d.box.Visible = false
-        d.tracer.Visible = false
-    end
+    if not d then return end
+    for _, l in ipairs(d.bones)    do l.Visible = false end
+    for _, s in ipairs(d.outlines) do s.Visible = false end
+    d.tracer.Visible = false
 end
 
 local function removePlayer(player)
     local d = drawings[player]
-    if d then
-        d.box:Remove()
-        d.tracer:Remove()
-        drawings[player] = nil
-    end
+    if not d then return end
+    for _, l in ipairs(d.bones)    do l:Remove() end
+    for _, s in ipairs(d.outlines) do s:Remove() end
+    d.tracer:Remove()
+    drawings[player] = nil
 end
 
 local function removeAll()
-    for player in pairs(drawings) do
-        removePlayer(player)
-    end
+    for p in pairs(drawings) do removePlayer(p) end
 end
 
 -- ──────────────────────────────────────────────
--- Validação de alvo
+-- HELPERS
 -- ──────────────────────────────────────────────
+local function GetColor(player)
+    if not Config.TeamCheck or not player.Team or not LocalPlayer.Team then
+        return Color3.fromRGB(255, 255, 0)          -- amarelo (sem time)
+    end
+    if player.Team == LocalPlayer.Team then
+        return Color3.fromRGB(0, 120, 255)           -- azul = aliado
+    end
+    return Color3.fromRGB(255, 50, 50)               -- vermelho = inimigo
+end
+
 local function IsValidTarget(player)
     if not player or player == LocalPlayer then return false end
     if Library:IsWhitelisted(player) then return false end
-    if Config.TeamCheck then
-        if not player.Neutral then
-            local myTeam = LocalPlayer.Team
-            local myColor = LocalPlayer.TeamColor
-            if player.Team == myTeam or (player.TeamColor == myColor and myColor ~= nil) then
-                return false
-            end
+    if Config.TeamCheck and not player.Neutral then
+        local myTeam  = LocalPlayer.Team
+        local myColor = LocalPlayer.TeamColor
+        if player.Team == myTeam or (player.TeamColor == myColor and myColor ~= nil) then
+            return false
         end
     end
-    local character = player.Character
-    if not character then return false end
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    return humanoid and humanoid.Health > 0 and character:FindFirstChild("HumanoidRootPart") ~= nil
+    local char = player.Character
+    if not char then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    return hum and hum.Health > 0 and char:FindFirstChild("HumanoidRootPart") ~= nil
 end
 
-local function GetESPColor(player)
-    if not Config.TeamCheck or not player.Team or not LocalPlayer.Team then
-        return Color3.fromRGB(255, 255, 0)
-    end
-    return player.Team == LocalPlayer.Team
-        and Color3.fromRGB(0, 255, 120)
-        or  Color3.fromRGB(255, 80, 80)
+-- Projeta posição 3D → Vector2 na tela. Retorna nil se atrás da câmera.
+local function toScreen(pos)
+    local sp, onScreen = Camera:WorldToViewportPoint(pos)
+    if not onScreen or sp.Z <= 0 then return nil end
+    return Vector2.new(sp.X, sp.Y)
 end
 
--- ──────────────────────────────────────────────
--- Bounding box 2D via 8 cantos do volume do char
--- ──────────────────────────────────────────────
-local function getScreenBoundingBox(rootPart)
-    local halfW, halfH, halfD = 2, 3, 1
+-- Bounding box 2D de uma BasePart (usa seu tamanho real)
+local function partBounds(part)
+    local s  = part.Size
+    local hx, hy, hz = s.X / 2, s.Y / 2, s.Z / 2
     local offsets = {
-        Vector3.new( halfW,  halfH,  halfD),
-        Vector3.new( halfW,  halfH, -halfD),
-        Vector3.new( halfW, -halfH,  halfD),
-        Vector3.new( halfW, -halfH, -halfD),
-        Vector3.new(-halfW,  halfH,  halfD),
-        Vector3.new(-halfW,  halfH, -halfD),
-        Vector3.new(-halfW, -halfH,  halfD),
-        Vector3.new(-halfW, -halfH, -halfD),
+        Vector3.new( hx,  hy,  hz), Vector3.new( hx,  hy, -hz),
+        Vector3.new( hx, -hy,  hz), Vector3.new( hx, -hy, -hz),
+        Vector3.new(-hx,  hy,  hz), Vector3.new(-hx,  hy, -hz),
+        Vector3.new(-hx, -hy,  hz), Vector3.new(-hx, -hy, -hz),
     }
-    local minX, minY = math.huge, math.huge
+    local minX, minY =  math.huge,  math.huge
     local maxX, maxY = -math.huge, -math.huge
-    for _, offset in ipairs(offsets) do
-        local worldPos = (rootPart.CFrame * CFrame.new(offset)).Position
-        local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
-        if not onScreen or screenPos.Z <= 0 then return nil end
-        if screenPos.X < minX then minX = screenPos.X end
-        if screenPos.Y < minY then minY = screenPos.Y end
-        if screenPos.X > maxX then maxX = screenPos.X end
-        if screenPos.Y > maxY then maxY = screenPos.Y end
+    for _, off in ipairs(offsets) do
+        local sp = toScreen((part.CFrame * CFrame.new(off)).Position)
+        if not sp then return nil end
+        if sp.X < minX then minX = sp.X end
+        if sp.Y < minY then minY = sp.Y end
+        if sp.X > maxX then maxX = sp.X end
+        if sp.Y > maxY then maxY = sp.Y end
     end
     return minX, minY, maxX - minX, maxY - minY
 end
 
 -- ──────────────────────────────────────────────
--- Loop principal
+-- LOOP PRINCIPAL
 -- ──────────────────────────────────────────────
 local function UpdateESP()
-    for player in pairs(drawings) do
-        if not player or not player.Parent then
-            removePlayer(player)
-        end
+    -- Remove jogadores que saíram
+    for p in pairs(drawings) do
+        if not p or not p.Parent then removePlayer(p) end
     end
 
     for _, player in ipairs(Players:GetPlayers()) do
-        local d = getOrCreate(player)
-        local color = GetESPColor(player)
-        d.box.Color = color
+        local d     = allocPlayer(player)
+        local color = GetColor(player)
+
+        -- Aplica cor em todos os elementos
+        for _, l in ipairs(d.bones)    do l.Color = color end
+        for _, s in ipairs(d.outlines) do s.Color = color end
         d.tracer.Color = color
 
         if not IsValidTarget(player) then
@@ -150,44 +195,67 @@ local function UpdateESP()
             continue
         end
 
-        local character = player.Character
-        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-        local head = character and character:FindFirstChild("Head")
-        if not rootPart or not head then
-            hidePlayer(player)
-            continue
-        end
+        local char = player.Character
 
-        -- BOX
-        if Config.Boxes then
-            local x, y, w, h = getScreenBoundingBox(rootPart)
-            if x then
-                d.box.Position = Vector2.new(x, y)
-                d.box.Size = Vector2.new(w, h)
-                d.box.Visible = true
-            else
-                d.box.Visible = false
+        -- ── SKELETON ──────────────────────────────
+        if Config.Skeleton then
+            for i, pair in ipairs(BONE_PAIRS) do
+                local partA = char:FindFirstChild(pair[1])
+                local partB = char:FindFirstChild(pair[2])
+                local line  = d.bones[i]
+                if partA and partB then
+                    local a = toScreen(partA.Position)
+                    local b = toScreen(partB.Position)
+                    if a and b then
+                        line.From    = a
+                        line.To      = b
+                        line.Visible = true
+                    else
+                        line.Visible = false
+                    end
+                else
+                    line.Visible = false
+                end
             end
         else
-            d.box.Visible = false
+            for _, l in ipairs(d.bones) do l.Visible = false end
         end
 
-        -- TRACER
-        if Config.Tracers then
-            local headPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-            if onScreen and headPos.Z > 0 then
-                local vp = Camera.ViewportSize
-                local from
-                if Config.TracerStartPoint == "Top" then
-                    from = Vector2.new(vp.X / 2, 0)
-                elseif Config.TracerStartPoint == "Mouse" then
-                    from = UserInputService:GetMouseLocation()
+        -- ── OUTLINE ───────────────────────────────
+        if Config.Outline then
+            for i, partName in ipairs(OUTLINE_PARTS) do
+                local part = char:FindFirstChild(partName)
+                local sq   = d.outlines[i]
+                if part then
+                    local x, y, w, h = partBounds(part)
+                    if x then
+                        sq.Position = Vector2.new(x, y)
+                        sq.Size     = Vector2.new(w, h)
+                        sq.Visible  = true
+                    else
+                        sq.Visible = false
+                    end
                 else
-                    from = Vector2.new(vp.X / 2, vp.Y)
+                    sq.Visible = false
                 end
-                d.tracer.From = from
-                d.tracer.To = Vector2.new(headPos.X, headPos.Y)
-                d.tracer.Visible = true
+            end
+        else
+            for _, s in ipairs(d.outlines) do s.Visible = false end
+        end
+
+        -- ── TRACER ────────────────────────────────
+        if Config.Tracers then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                local sp = toScreen(root.Position)
+                if sp then
+                    local vp = Camera.ViewportSize
+                    d.tracer.From    = Vector2.new(vp.X / 2, vp.Y)
+                    d.tracer.To      = sp
+                    d.tracer.Visible = true
+                else
+                    d.tracer.Visible = false
+                end
             else
                 d.tracer.Visible = false
             end
@@ -198,7 +266,7 @@ local function UpdateESP()
 end
 
 -- ──────────────────────────────────────────────
--- Toggle
+-- TOGGLE LOOP
 -- ──────────────────────────────────────────────
 local connection
 local function ToggleLoop(state)
@@ -219,12 +287,20 @@ local ESP_Module = Visual:AddModule("👁️ ESP", function(state)
     ToggleLoop(state)
 end, false)
 
-ESP_Module:AddToggle("📦 Boxes (Caixas)", Config.Boxes, function(state) Config.Boxes = state end)
-ESP_Module:AddToggle("📈 Tracers (Linhas)", Config.Tracers, function(state) Config.Tracers = state end)
-ESP_Module:AddToggle("👥 Checagem de Time", Config.TeamCheck, function(state) Config.TeamCheck = state end)
-ESP_Module:AddDropdown("📍 Ponto do Tracer", {"Bottom", "Top", "Mouse"}, function(val) Config.TracerStartPoint = val end)
+ESP_Module:AddToggle("💀 Skeleton (Graveto)", Config.Skeleton, function(state)
+    Config.Skeleton = state
+end)
+ESP_Module:AddToggle("🔲 Outline (Contorno)", Config.Outline, function(state)
+    Config.Outline = state
+end)
+ESP_Module:AddToggle("📈 Tracers (Linhas)", Config.Tracers, function(state)
+    Config.Tracers = state
+end)
+ESP_Module:AddToggle("👥 Checagem de Time", Config.TeamCheck, function(state)
+    Config.TeamCheck = state
+end)
 
-print("✅ ESP V3 carregado!")
+print("✅ ESP V4 (Skeleton + Outline) carregado!")
 
 return function()
     ToggleLoop(false)
