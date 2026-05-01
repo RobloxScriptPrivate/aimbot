@@ -1,4 +1,4 @@
--- ========== TELEPORTE v18 (Comportamento de Botão Corrigido) ==========
+-- ========== TELEPORTE v22 (Ação no Clique Principal + Sub-Opção Corrigida) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -38,23 +38,24 @@ local function refreshTeleportUI()
         local name = data.name
         local posData = data.position
         local cf = CFrame.new(unpack(posData))
+        local teleModule
 
-        local teleModule -- Declarado antes para auto-referência
-
-        -- CORREÇÃO FINAL: Cria um toggle, teleporta, e se desliga em seguida.
+        -- PASSO 1: Ação no clique principal. O módulo é um toggle que executa uma ação e se desliga.
         teleModule = TeleportCategory:AddModule(name, function(state) 
-            if state then -- Só executa quando ativado
+            if state then
                 teleportTo(cf)
-                teleModule:Set(false) -- ESSENCIAL: Desliga o toggle para agir como um botão
+                teleModule:Set(false) -- ESSENCIAL: Desliga o toggle para não ficar verde.
             end
-        end, false) -- `false` para permitir sub-opções
+        end, false) -- `false` para permitir o menu de clique-direito.
 
-        -- Adiciona a sub-opção "Remover" que agora deve funcionar
-        teleModule:AddButton("Remover", function()
-            table.remove(currentMapPositions, i)
-            Library:SaveConfig(CONFIG_FILE, allSavedPositions)
-            print("❌ Ponto '"..name.."' removido.")
-            refreshTeleportUI()
+        -- PASSO 2: A sub-opção é criada com AddToggle, o método correto que existe na biblioteca.
+        teleModule:AddToggle("❌ Remover", false, function(state)
+            if state then
+                table.remove(currentMapPositions, i)
+                Library:SaveConfig(CONFIG_FILE, allSavedPositions)
+                print("❌ Ponto '"..name.."' removido.")
+                refreshTeleportUI()
+            end
         end)
 
         table.insert(teleportModules, teleModule)
@@ -81,7 +82,7 @@ local function openTeleportManager()
     end)
 end
 
--- Botão principal para criar novos pontos (sem sub-opções)
+-- Botão principal para criar novos pontos (este é um botão simples)
 TeleportCategory:AddModule("➕ Criar Novo Ponto", function()
     openTeleportManager()
 end, true)
@@ -89,4 +90,4 @@ end, true)
 -- Carregamento inicial
 refreshTeleportUI()
 
-print("✅ Módulo de Teleporte Avançado (v18) carregado.")
+print("✅ Módulo de Teleporte Avançado (v22) carregado.")
