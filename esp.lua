@@ -335,4 +335,10 @@ end)
 
 print("✅ ESP V6 (Skeleton Motor6D + Highlight Outline) carregado!")
 
-return function() ToggleLoop(false) end
+-- Limpa tudo independente do estado atual
+return function()
+    if connection then connection:Disconnect(); connection = nil end
+    removeAllSkeletons()
+    removeAllHighlights()
+    removeAllTracers()
+end

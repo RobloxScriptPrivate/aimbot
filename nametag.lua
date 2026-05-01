@@ -178,6 +178,8 @@ end)
 print("✅ Nametag V2 carregado!")
 
 -- Função de limpeza ao remover o script
+-- Limpa tudo independente do estado atual (ativo ou inativo)
 return function()
-    ToggleLoop(false)
+    if connection then connection:Disconnect(); connection = nil end
+    ClearNametags()
 end

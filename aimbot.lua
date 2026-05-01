@@ -201,4 +201,8 @@ MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val) Conf
 MainToggle:AddSlider("🌀 Suavização", 1, 10, 2, function(val) Config.Smoothing = val/10 end)
 
 print("✅ Aimbot V2.6 (GUI V6.0) carregado!")
-return function() if updateConnection then updateConnection:Disconnect() end end
+return function()
+    if updateConnection then updateConnection:Disconnect(); updateConnection = nil end
+    -- Remove o círculo de FOV (Drawing object) da tela
+    circle:Remove()
+end

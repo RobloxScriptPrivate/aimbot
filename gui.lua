@@ -553,4 +553,7 @@ Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
     if pressed then MainFrame.Visible = not MainFrame.Visible end
 end)
 
+-- Expõe o ScreenGui para que o loader conecte o cleanup global
+Library.ScreenGui = ScreenGui
+
 return Library
