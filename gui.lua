@@ -1,4 +1,4 @@
--- Manus GUI Library V6.7 (Compact SubOptions + Destroy Fix)
+-- Manus GUI Library V6.8 (Teleport Button in Whitelist)
 local Library = {}
 
 -- Serviços
@@ -19,16 +19,13 @@ Library.Overlays = {}
 Library.Whitelist = {}
 
 --[[
-    1. MÉTODOS DE CONFIGURAÇÃO
+    1. MÉTODOS DE CONFIGURAÇÃO E UTILIDADES
 ]]
 -- Pasta base dos configs no workspace do executor
 local CONFIG_FOLDER = "Universal Project"
 
--- Garante que a pasta existe (makefolder é API padrão dos executores)
 pcall(function()
-    if makefolder and not isfolder(CONFIG_FOLDER) then
-        makefolder(CONFIG_FOLDER)
-    end
+    if makefolder and not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
 end)
 
 function Library:SaveConfig(name, data)
@@ -71,11 +68,26 @@ function Library:ToggleWhitelist(playerObj)
     return Library.Whitelist[playerObj.UserId]
 end
 
+-- NOVA FUNÇÃO DE TELEPORTE
+function Library:TeleportToPlayer(targetPlayer)
+    local localChar = player.Character
+    local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
+    local targetChar = targetPlayer and targetPlayer.Character
+    local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+
+    if localRoot and targetRoot then
+        localRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 3, 0) -- Teleporta um pouco acima do alvo
+        print("🚀 Teleportado para " .. targetPlayer.Name)
+    else
+        print("⚠️ Não foi possível teleportar: jogador de destino ou local não encontrado.")
+    end
+end
+
 --[[
     2. INICIALIZAÇÃO DA GUI
 ]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ManusGuiLib_V6_7"
+ScreenGui.Name = "ManusGuiLib_V6_8"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then
@@ -125,8 +137,6 @@ Instance.new("UICorner", SettingsBtn).CornerRadius = UDim.new(0, 4)
 --[[
     3. FUNÇÕES UTILITÁRIAS
 ]]
--- Salva posicoes das categorias na pasta Universal Project
--- Mapa nome->categoryObj para salvar estado expanded
 local categoryObjects = {}
 
 local function saveCategoryPositions()
@@ -173,16 +183,16 @@ local function makeDraggable(frame, dragHandle, onDragEnd)
 end
 
 --[[
-    4. JANELA DE WHITELIST
+    4. JANELA DE WHITELIST (COM BOTÃO DE TELEPORTE)
 ]]
 function Library:OpenWhitelistWindow()
-    local window = Library:CreateWindow("🛡️ Whitelist de Jogadores", UDim2.new(0, 400, 0, 350))
+    local window = Library:CreateWindow("🛡️ Whitelist & Teleporte", UDim2.new(0, 400, 0, 350))
     local content = window.Content
     local currentTab = "Marcador"
     local searchQuery = ""
 
     local WinSearch = Instance.new("TextBox")
-    WinSearch.Size = UDim2.new(0.9, 0, 0, 28)
+    WinSearch.Size = UDim2.new(0.9, 0, 0, 28); WinSearch.Position = UDim2.new(0.5, -WinSearch.Size.X.Offset/2, 0, 0)
     WinSearch.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     WinSearch.PlaceholderText = "Pesquisar jogador..."
     WinSearch.Text = ""; WinSearch.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -190,7 +200,8 @@ function Library:OpenWhitelistWindow()
     WinSearch.Parent = content; Instance.new("UICorner", WinSearch)
 
     local TabFrame = Instance.new("Frame")
-    TabFrame.Size = UDim2.new(0.9, 0, 0, 35); TabFrame.BackgroundTransparency = 1; TabFrame.Parent = content
+    TabFrame.Size = UDim2.new(0.9, 0, 0, 35); TabFrame.Position = UDim2.new(0.5, -TabFrame.Size.X.Offset/2, 0, 0)
+    TabFrame.BackgroundTransparency = 1; TabFrame.Parent = content
     local Btn1 = Instance.new("TextButton")
     Btn1.Size = UDim2.new(0.5, -5, 1, 0); Btn1.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
     Btn1.Text = "Marcador"; Btn1.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -202,26 +213,43 @@ function Library:OpenWhitelistWindow()
     Btn2.TextSize = 16; Btn2.Parent = TabFrame; Instance.new("UICorner", Btn2)
 
     local Scroll = Instance.new("ScrollingFrame")
-    Scroll.Size = UDim2.new(0.95, 0, 1, -110); Scroll.BackgroundTransparency = 1
-    Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 3; Scroll.Parent = content
+    Scroll.Size = UDim2.new(0.95, 0, 1, -110); Scroll.Position = UDim2.new(0.5, -Scroll.Size.X.Offset/2, 0, 0)
+    Scroll.BackgroundTransparency = 1; Scroll.BorderSizePixel = 0; Scroll.ScrollBarThickness = 3; Scroll.Parent = content
     local listLayout = Instance.new("UIListLayout", Scroll)
     listLayout.Padding = UDim.new(0, 5); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
     local function refresh()
-        for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        for _, v in pairs(Scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
         for _, p in ipairs(Players:GetPlayers()) do
             if p == player then continue end
             local isW = Library:IsWhitelisted(p)
             local match = string.find(string.lower(p.DisplayName), string.lower(searchQuery)) or string.find(string.lower(p.Name), string.lower(searchQuery))
             local show = (currentTab == "Marcador" and match) or (currentTab == "Marcados" and isW and match)
             if show then
-                local b = Instance.new("TextButton")
-                b.Size = UDim2.new(0.95, 0, 0, 32)
-                b.BackgroundColor3 = isW and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(50, 50, 50)
-                b.Text = (isW and "[WL] " or "") .. p.DisplayName
-                b.TextColor3 = Color3.fromRGB(255, 255, 255); b.Font = Enum.Font.SourceSans
-                b.TextSize = 14; b.Parent = Scroll; Instance.new("UICorner", b)
-                b.MouseButton1Click:Connect(function() Library:ToggleWhitelist(p); refresh() end)
+                local pFrame = Instance.new("Frame")
+                pFrame.Size = UDim2.new(0.95, 0, 0, 32); pFrame.BackgroundTransparency = 1; pFrame.Parent = Scroll
+
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Size = UDim2.new(1, -110, 1, 0); nameLabel.Text = "  " .. p.DisplayName
+                nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220); nameLabel.Font = Enum.Font.SourceSans
+                nameLabel.TextSize = 14; nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                nameLabel.BackgroundTransparency = 1; nameLabel.Parent = pFrame
+
+                local wlBtn = Instance.new("TextButton")
+                wlBtn.Size = UDim2.new(0, 50, 0.8, 0); wlBtn.Position = UDim2.new(1, -105, 0.1, 0)
+                wlBtn.BackgroundColor3 = isW and Color3.fromRGB(0, 180, 80) or Color3.fromRGB(50, 50, 50)
+                wlBtn.Text = isW and "WL" or "Add"; wlBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                wlBtn.Font = Enum.Font.SourceSansBold; wlBtn.TextSize = 12; wlBtn.Parent = pFrame
+                Instance.new("UICorner", wlBtn).CornerRadius = UDim.new(0, 4)
+                wlBtn.MouseButton1Click:Connect(function() Library:ToggleWhitelist(p); refresh() end)
+
+                local tpBtn = Instance.new("TextButton")
+                tpBtn.Size = UDim2.new(0, 50, 0.8, 0); tpBtn.Position = UDim2.new(1, -50, 0.1, 0)
+                tpBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255); tpBtn.Text = "TP"
+                tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255); tpBtn.Font = Enum.Font.SourceSansBold
+                tpBtn.TextSize = 12; tpBtn.Parent = pFrame
+                Instance.new("UICorner", tpBtn).CornerRadius = UDim.new(0, 4)
+                tpBtn.MouseButton1Click:Connect(function() Library:TeleportToPlayer(p) end)
             end
         end
         Scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 5)
@@ -295,7 +323,6 @@ function Library:CreateWindow(title, size, position)
     return windowObj
 end
 
--- Exposto para o loader chamar APOS todos os modulos carregados
 function Library:RestoreCategoryPositions()
     local savedData = loadCategoryPositions()
     if not savedData then return end
@@ -303,15 +330,11 @@ function Library:RestoreCategoryPositions()
         if cat and cat.Parent and savedData[cat.Name] then
             local sp  = savedData[cat.Name]
             local obj = categoryObjects[cat.Name]
-            -- Restaura posicao
             cat.Position = UDim2.new(0, sp.x, 0, sp.y)
-            -- Restaura estado expandido/colapsado
             if obj and type(sp.expanded) == "boolean" then
                 obj.Expanded = sp.expanded
                 local optFrame = obj.Options
-                if optFrame then
-                    optFrame.Visible = sp.expanded
-                end
+                if optFrame then optFrame.Visible = sp.expanded end
             end
         end
     end
@@ -319,10 +342,8 @@ end
 
 function Library:CreateCategory(name, position)
     local CategoryFrame = Instance.new("Frame")
-    CategoryFrame.Name = name
-    CategoryFrame.Size = UDim2.new(0, 150, 0, 30)
-    CategoryFrame.Position = position
-    CategoryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    CategoryFrame.Name = name; CategoryFrame.Size = UDim2.new(0, 150, 0, 30)
+    CategoryFrame.Position = position; CategoryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     CategoryFrame.BorderSizePixel = 0; CategoryFrame.Parent = MainFrame
 
     local Title = Instance.new("TextButton")
@@ -342,15 +363,12 @@ function Library:CreateCategory(name, position)
     makeDraggable(CategoryFrame, Title, saveCategoryPositions)
     local categoryObj = { Frame = CategoryFrame, Options = OptionsFrame, Expanded = true }
     table.insert(Library.Categories, CategoryFrame)
-    categoryObjects[name] = categoryObj  -- registra para save/restore de estado
+    categoryObjects[name] = categoryObj
 
-    -- Recalcula altura total do OptionsFrame somando todos os ModuleContainers
     local function recalcOptionsFrame()
         local totalHeight = 0
         for _, v in pairs(OptionsFrame:GetChildren()) do
-            if v:IsA("Frame") then
-                totalHeight = totalHeight + v.Size.Y.Offset
-            end
+            if v:IsA("Frame") then totalHeight = totalHeight + v.Size.Y.Offset end
         end
         OptionsFrame.Size = UDim2.new(1, 0, 0, totalHeight)
     end
@@ -358,41 +376,28 @@ function Library:CreateCategory(name, position)
     Title.MouseButton2Click:Connect(function()
         categoryObj.Expanded = not categoryObj.Expanded
         OptionsFrame.Visible = categoryObj.Expanded
-        saveCategoryPositions()  -- salva estado ao colapsar/expandir
+        saveCategoryPositions()
     end)
 
     function categoryObj:AddModule(moduleName, callback, isTrigger)
         local moduleObj = { Enabled = false, IsTrigger = isTrigger or false, SubExpanded = false }
-
         local ModuleContainer = Instance.new("Frame")
         ModuleContainer.Size = UDim2.new(1, 0, 0, 25)
-        ModuleContainer.BackgroundTransparency = 1
-        ModuleContainer.Parent = OptionsFrame
+        ModuleContainer.BackgroundTransparency = 1; ModuleContainer.Parent = OptionsFrame
 
         local ModuleBtn = Instance.new("TextButton")
-        ModuleBtn.Size = UDim2.new(1, 0, 0, 25)
-        ModuleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        ModuleBtn.BorderSizePixel = 0
-        ModuleBtn.Text = "  " .. moduleName
-        ModuleBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-        ModuleBtn.Font = Enum.Font.SourceSans
-        ModuleBtn.TextSize = 14
-        ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left
-        ModuleBtn.Parent = ModuleContainer
+        ModuleBtn.Size = UDim2.new(1, 0, 0, 25); ModuleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        ModuleBtn.BorderSizePixel = 0; ModuleBtn.Text = "  " .. moduleName
+        ModuleBtn.TextColor3 = Color3.fromRGB(200, 200, 200); ModuleBtn.Font = Enum.Font.SourceSans
+        ModuleBtn.TextSize = 14; ModuleBtn.TextXAlignment = Enum.TextXAlignment.Left; ModuleBtn.Parent = ModuleContainer
 
-        -- SubFrame compacto: cada item tem altura fixa de 18px (toggle) ou 26px (slider)
         local SubFrame = Instance.new("ScrollingFrame")
-        SubFrame.Size = UDim2.new(1, 0, 0, 0)
-        SubFrame.Position = UDim2.new(0, 0, 0, 25)
-        SubFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        SubFrame.BorderSizePixel = 0
-        SubFrame.Visible = false
-        SubFrame.ScrollBarThickness = 2
-        SubFrame.Parent = ModuleContainer
+        SubFrame.Size = UDim2.new(1, 0, 0, 0); SubFrame.Position = UDim2.new(0, 0, 0, 25)
+        SubFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); SubFrame.BorderSizePixel = 0
+        SubFrame.Visible = false; SubFrame.ScrollBarThickness = 2; SubFrame.Parent = ModuleContainer
 
         local subLayout = Instance.new("UIListLayout", SubFrame)
-        subLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        subLayout.Padding = UDim.new(0, 1)
+        subLayout.SortOrder = Enum.SortOrder.LayoutOrder; subLayout.Padding = UDim.new(0, 1)
 
         local function updateSizes()
             local contentHeight = subLayout.AbsoluteContentSize.Y
@@ -406,9 +411,7 @@ function Library:CreateCategory(name, position)
         subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSizes)
 
         ModuleBtn.MouseButton1Click:Connect(function()
-            if moduleObj.IsTrigger then
-                callback()
-            else
+            if moduleObj.IsTrigger then callback() else
                 moduleObj.Enabled = not moduleObj.Enabled
                 ModuleBtn.TextColor3 = moduleObj.Enabled and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(200, 200, 200)
                 callback(moduleObj.Enabled)
@@ -420,27 +423,18 @@ function Library:CreateCategory(name, position)
             updateSizes()
         end)
 
-        -- CORREÇÃO: Destroy remove o container e recalcula o layout
         function moduleObj:Destroy()
-            if ModuleContainer and ModuleContainer.Parent then
-                ModuleContainer:Destroy()
-            end
+            if ModuleContainer and ModuleContainer.Parent then ModuleContainer:Destroy() end
             recalcOptionsFrame()
         end
 
-        -- Toggle compacto: 18px de altura, texto pequeno
         function moduleObj:AddToggle(t, d, c)
             local s = d or false
             local b = Instance.new("TextButton")
-            b.Size = UDim2.new(1, 0, 0, 18)
-            b.BackgroundTransparency = 1
-            b.Text = "  " .. t
-            b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160)
-            b.Font = Enum.Font.SourceSans
-            b.TextSize = 12
-            b.TextXAlignment = Enum.TextXAlignment.Left
-            b.LayoutOrder = 1
-            b.Parent = SubFrame
+            b.Size = UDim2.new(1, 0, 0, 18); b.BackgroundTransparency = 1
+            b.Text = "  " .. t; b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160)
+            b.Font = Enum.Font.SourceSans; b.TextSize = 12
+            b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 1; b.Parent = SubFrame
             b.MouseButton1Click:Connect(function()
                 s = not s
                 b.TextColor3 = s and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(160, 160, 160)
@@ -448,10 +442,7 @@ function Library:CreateCategory(name, position)
             end)
         end
 
-        -- Dropdown compacto: aceita defaultValue opcional para restaurar config salva
-        -- Assinatura: AddDropdown(texto, opcoes, callback, valorInicial)
         function moduleObj:AddDropdown(t, o, c, defaultValue)
-            -- Encontra o indice do valor inicial (salvo ou primeiro da lista)
             local i = 1
             if defaultValue ~= nil then
                 for idx, v in ipairs(o) do
@@ -459,61 +450,42 @@ function Library:CreateCategory(name, position)
                 end
             end
             local b = Instance.new("TextButton")
-            b.Size = UDim2.new(1, 0, 0, 18)
-            b.BackgroundTransparency = 1
-            b.Text = "  " .. t .. ": " .. tostring(o[i])
-            b.TextColor3 = Color3.fromRGB(180, 180, 180)
-            b.Font = Enum.Font.SourceSans
-            b.TextSize = 12
-            b.TextXAlignment = Enum.TextXAlignment.Left
-            b.LayoutOrder = 2
-            b.Parent = SubFrame
+            b.Size = UDim2.new(1, 0, 0, 18); b.BackgroundTransparency = 1
+            b.Text = "  " .. t .. ": " .. tostring(o[i]); b.TextColor3 = Color3.fromRGB(180, 180, 180)
+            b.Font = Enum.Font.SourceSans; b.TextSize = 12
+            b.TextXAlignment = Enum.TextXAlignment.Left; b.LayoutOrder = 2; b.Parent = SubFrame
             b.MouseButton1Click:Connect(function()
                 i = i + 1; if i > #o then i = 1 end
                 b.Text = "  " .. t .. ": " .. tostring(o[i]); c(o[i])
             end)
         end
 
-        -- Slider compacto: 26px total (label 13px + barra 8px + padding 5px)
         function moduleObj:AddSlider(t, min, max, d, c)
             local f = Instance.new("Frame")
-            f.Size = UDim2.new(1, 0, 0, 26)
-            f.BackgroundTransparency = 1
-            f.LayoutOrder = 3
-            f.Parent = SubFrame
+            f.Size = UDim2.new(1, 0, 0, 26); f.BackgroundTransparency = 1
+            f.LayoutOrder = 3; f.Parent = SubFrame
 
             local l = Instance.new("TextLabel")
-            l.Size = UDim2.new(1, -4, 0, 13)
-            l.Position = UDim2.new(0, 4, 0, 1)
-            l.Text = t .. ": " .. tostring(d)
-            l.TextColor3 = Color3.fromRGB(180, 180, 180)
-            l.BackgroundTransparency = 1
-            l.TextSize = 11
-            l.Font = Enum.Font.SourceSans
-            l.TextXAlignment = Enum.TextXAlignment.Left
-            l.Parent = f
+            l.Size = UDim2.new(1, -4, 0, 13); l.Position = UDim2.new(0, 4, 0, 1)
+            l.Text = t .. ": " .. tostring(d); l.TextColor3 = Color3.fromRGB(180, 180, 180)
+            l.BackgroundTransparency = 1; l.TextSize = 11; l.Font = Enum.Font.SourceSans
+            l.TextXAlignment = Enum.TextXAlignment.Left; l.Parent = f
 
             local bar = Instance.new("Frame")
-            bar.Size = UDim2.new(1, -8, 0, 5)
-            bar.Position = UDim2.new(0, 4, 0, 16)
-            bar.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
-            bar.BorderSizePixel = 0
-            bar.Parent = f
+            bar.Size = UDim2.new(1, -8, 0, 5); bar.Position = UDim2.new(0, 4, 0, 16)
+            bar.BackgroundColor3 = Color3.fromRGB(55, 55, 55); bar.BorderSizePixel = 0; bar.Parent = f
             Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
 
             local fill = Instance.new("Frame")
             fill.Size = UDim2.new(math.clamp((d - min) / (max - min), 0, 1), 0, 1, 0)
-            fill.BackgroundColor3 = Color3.fromRGB(0, 120, 200)
-            fill.BorderSizePixel = 0
-            fill.Parent = bar
+            fill.BackgroundColor3 = Color3.fromRGB(0, 120, 200); fill.BorderSizePixel = 0; fill.Parent = bar
             Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
             local function up(input)
                 local p = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
                 fill.Size = UDim2.new(p, 0, 1, 0)
                 local v = math.floor(min + (p * (max - min)))
-                l.Text = t .. ": " .. tostring(v)
-                c(v)
+                l.Text = t .. ": " .. tostring(v); c(v)
             end
             local drag = false
             bar.InputBegan:Connect(function(input)
@@ -526,7 +498,6 @@ function Library:CreateCategory(name, position)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end
             end)
         end
-
         return moduleObj
     end
     return categoryObj
@@ -537,30 +508,25 @@ end
 ]]
 SettingsBtn.MouseButton1Click:Connect(function()
     local win = Library:CreateWindow("Configurações Globais", UDim2.new(0, 300, 0, 220))
-    win:AddButton("🛡️ Gerenciar Whitelist", function() Library:OpenWhitelistWindow() end)
+    win:AddButton("🛡️ Gerenciar Jogadores", function() Library:OpenWhitelistWindow() end)
     local kb = win:AddButton("⌨️ Atalho do Menu: " .. Library.OpenKey.Name, function() end)
     kb.MouseButton1Click:Connect(function()
         kb.Text = "... Pressione uma tecla ..."
         local c; c = UserInputService.InputBegan:Connect(function(i)
             if i.UserInputType == Enum.UserInputType.Keyboard then
                 Library.OpenKey = i.KeyCode
-                kb.Text = "⌨️ Atalho do Menu: " .. i.KeyCode.Name
-                c:Disconnect()
+                kb.Text = "⌨️ Atalho do Menu: " .. i.KeyCode.Name; c:Disconnect()
             end
         end)
     end)
     win:AddButton("❌ Remover Script (Atalho: K)", function()
-        saveCategoryPositions()  -- salva posicao e estado antes de destruir
-        ScreenGui:Destroy()
+        saveCategoryPositions(); ScreenGui:Destroy()
     end)
 end)
 
--- ATALHO GLOBAL PARA REMOVER (K)
--- Salva posicoes ANTES de destruir para que o restore funcione na proxima execucao
 UserInputService.InputBegan:Connect(function(input, processed)
     if not processed and input.KeyCode == Library.RemoveKey then
-        saveCategoryPositions()  -- salva posicao e estado antes de destruir
-        ScreenGui:Destroy()
+        saveCategoryPositions(); ScreenGui:Destroy()
     end
 end)
 
@@ -573,9 +539,7 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
                 local b = mod:FindFirstChildOfClass("TextButton")
                 if b and string.find(string.lower(b.Text), q) then
                     mod.Visible = true; has = true
-                else
-                    mod.Visible = false
-                end
+                else mod.Visible = false end
             end
         end
         cat.Visible = (q == "" or has)
@@ -628,7 +592,6 @@ Library:AddKeybind("Abrir/Fechar Menu", Library.OpenKey, function(key, pressed)
     if pressed then MainFrame.Visible = not MainFrame.Visible end
 end)
 
--- Expõe o ScreenGui para que o loader conecte o cleanup global
 Library.ScreenGui = ScreenGui
 
 return Library

@@ -16,6 +16,7 @@ local Config = {
     Preenchido = false, -- Filled mode (Highlight + Nametag)
     Tracers   = false,
     TeamCheck = true,
+    MaxDistance = 300,
 }
 
 local saved = Library:LoadConfig("esp")
@@ -25,6 +26,7 @@ if saved then
     if type(saved.Preenchido) == "boolean" then Config.Preenchido = saved.Preenchido end
     if type(saved.Tracers)   == "boolean" then Config.Tracers   = saved.Tracers   end
     if type(saved.TeamCheck) == "boolean" then Config.TeamCheck = saved.TeamCheck end
+    if type(saved.MaxDistance) == "number" then Config.MaxDistance = saved.MaxDistance end
 end
 
 local function Save()
@@ -34,6 +36,7 @@ local function Save()
         Preenchido = Config.Preenchido,
         Tracers   = Config.Tracers,
         TeamCheck = Config.TeamCheck,
+        MaxDistance = Config.MaxDistance,
     })
 end
 
@@ -68,7 +71,19 @@ local function IsValidTarget(player)
     if not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return false end
-    if not char:FindFirstChild("HumanoidRootPart") then return false end
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return false end
+
+    -- Distance Check
+    local localChar = LocalPlayer.Character
+    if localChar then
+        local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+        if localRoot then
+            if (rootPart.Position - localRoot.Position).Magnitude > Config.MaxDistance then
+                return false
+            end
+        end
+    end
 
     -- TeamCheck is now handled by GetColor, so we don't filter out teammates here
     if Config.TeamCheck and LocalPlayer.Team and player.Team and player.Team == LocalPlayer.Team then
@@ -400,6 +415,11 @@ ESP_Module:AddToggle("📈 Tracers (Linhas)", Config.Tracers, function(state)
 end)
 ESP_Module:AddToggle("👥 Checar Time (Cores)", Config.TeamCheck, function(state)
     Config.TeamCheck = state
+    Save()
+end)
+
+ESP_Module:AddSlider("📏 Distância Máxima", 10, 1000, Config.MaxDistance, true, function(value)
+    Config.MaxDistance = value
     Save()
 end)
 

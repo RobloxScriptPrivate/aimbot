@@ -1,4 +1,4 @@
--- ========== AIMBOT DUPLO V2.8 (Suavização Padrão Ajustada) ==========
+-- ========== AIMBOT DUPLO V2.9 (Prioridade por Distância no FOV) ==========
 local Library, AimCategory = ..., select(2, ...)
 
 -- Serviços
@@ -16,7 +16,7 @@ local Config = {
     TeamCheck  = true,
     ShowFOV    = false,
     ShowPanels = true,
-    Smoothing  = 0.9,  -- << VALOR ALTERADO AQUI (era 0.2)
+    Smoothing  = 0.9,
     F_KeyMode  = "Pressionar",
 }
 
@@ -87,22 +87,37 @@ local function GetTargetPart(character)
     return character:FindFirstChild(Config.AimPart) or character:FindFirstChild("HumanoidRootPart")
 end
 
-local function GetClosestToMouse()
-    local target, minDistance = nil, Config.FOV
+-- NOVA FUNÇÃO: Encontra o alvo mais próximo do JOGADOR que está DENTRO do círculo do FOV
+local function GetClosestInFOV()
+    local bestTarget, minPlayerDist = nil, math.huge
+    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return nil end -- Retorna nulo se nosso próprio personagem não existir
+
     for _, player in ipairs(Players:GetPlayers()) do
         if IsEnemy(player) and player.Character and IsAlive(player.Character) then
-            local part = GetTargetPart(player.Character)
-            if part then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            local targetPart = GetTargetPart(player.Character)
+            if targetPart then
+                -- Passo 1: O alvo está visível e dentro do círculo do FOV na tela?
+                local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
                 if onScreen then
-                    local d = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
-                    if d < minDistance then minDistance = d; target = player end
+                    local mouseDistance = (Vector2.new(screenPos.X, screenPos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                    
+                    -- Verifica se está dentro do raio do FOV
+                    if mouseDistance <= Config.FOV then
+                        -- Passo 2: Se sim, este inimigo é o mais próximo do nosso personagem fisicamente?
+                        local playerDistance = (localRoot.Position - targetPart.Position).Magnitude
+                        if playerDistance < minPlayerDist then
+                            minPlayerDist = playerDistance
+                            bestTarget = player
+                        end
+                    end
                 end
             end
         end
     end
-    return target
+    return bestTarget
 end
+
 
 local function GetClosestToPlayer()
     local target, minDistance = nil, math.huge
@@ -140,10 +155,8 @@ local function StartLoop()
         local function Aim(target)
             if target and target.Character then
                 local part = GetTargetPart(target.Character)
-                -- Usar um valor maior para suavização torna a mira mais RÁPIDA
                 local aimSpeed = Config.Smoothing
                 if aimSpeed >= 1 then
-                    -- Se for 1 ou mais, trava instantaneamente
                     Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
                 else
                     Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), aimSpeed)
@@ -152,10 +165,8 @@ local function StartLoop()
         end
 
         if aimingRight then
-            if not (lockedTargetRight and IsEnemy(lockedTargetRight)
-                    and lockedTargetRight.Character and IsAlive(lockedTargetRight.Character)) then
-                lockedTargetRight = GetClosestToMouse()
-            end
+            -- A cada frame, busca o melhor alvo (mais próximo do jogador, dentro do FOV)
+            lockedTargetRight = GetClosestInFOV()
             Aim(lockedTargetRight)
         else lockedTargetRight = nil end
 
@@ -228,12 +239,11 @@ MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val)
     Config.FOV = val; Save()
 end)
 MainToggle:AddSlider("🌀 Suavização", 1, 10, math.floor(Config.Smoothing * 10), function(val)
-    -- Garante que o valor está entre 0.1 e 1.0
     Config.Smoothing = math.clamp(val / 10, 0.1, 1.0)
     Save()
 end)
 
-print("✅ Aimbot V2.8 (Suavização Rápida) carregado!")
+print("✅ Aimbot V2.9 (Prioridade por Distância no FOV) carregado!")
 
 -- CLEANUP
 return function()
