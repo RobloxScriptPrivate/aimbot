@@ -126,17 +126,22 @@ Instance.new("UICorner", SettingsBtn).CornerRadius = UDim.new(0, 4)
     3. FUNÇÕES UTILITÁRIAS
 ]]
 -- Salva posicoes das categorias na pasta Universal Project
+-- Mapa nome->categoryObj para salvar estado expanded
+local categoryObjects = {}
+
 local function saveCategoryPositions()
-    local positions = {}
+    local data = {}
     for _, cat in ipairs(Library.Categories) do
         if cat and cat.Parent then
-            positions[cat.Name] = {
-                x = cat.Position.X.Offset,
-                y = cat.Position.Y.Offset,
+            local obj = categoryObjects[cat.Name]
+            data[cat.Name] = {
+                x        = cat.Position.X.Offset,
+                y        = cat.Position.Y.Offset,
+                expanded = obj and obj.Expanded or true,
             }
         end
     end
-    Library:SaveConfig("category_positions", positions)
+    Library:SaveConfig("category_positions", data)
 end
 
 local function loadCategoryPositions()
@@ -290,14 +295,29 @@ function Library:CreateWindow(title, size, position)
     return windowObj
 end
 
-function Library:CreateCategory(name, position)
-    -- Tenta restaurar posicao salva; usa posicao padrao se nao houver
-    local savedPos = loadCategoryPositions()
-    if savedPos and savedPos[name] then
-        local sp = savedPos[name]
-        position = UDim2.new(0, sp.x, 0, sp.y)
+-- Exposto para o loader chamar APOS todos os modulos carregados
+function Library:RestoreCategoryPositions()
+    local savedData = loadCategoryPositions()
+    if not savedData then return end
+    for _, cat in ipairs(Library.Categories) do
+        if cat and cat.Parent and savedData[cat.Name] then
+            local sp  = savedData[cat.Name]
+            local obj = categoryObjects[cat.Name]
+            -- Restaura posicao
+            cat.Position = UDim2.new(0, sp.x, 0, sp.y)
+            -- Restaura estado expandido/colapsado
+            if obj and type(sp.expanded) == "boolean" then
+                obj.Expanded = sp.expanded
+                local optFrame = obj.Options
+                if optFrame then
+                    optFrame.Visible = sp.expanded
+                end
+            end
+        end
     end
+end
 
+function Library:CreateCategory(name, position)
     local CategoryFrame = Instance.new("Frame")
     CategoryFrame.Name = name
     CategoryFrame.Size = UDim2.new(0, 150, 0, 30)
@@ -322,6 +342,7 @@ function Library:CreateCategory(name, position)
     makeDraggable(CategoryFrame, Title, saveCategoryPositions)
     local categoryObj = { Frame = CategoryFrame, Options = OptionsFrame, Expanded = true }
     table.insert(Library.Categories, CategoryFrame)
+    categoryObjects[name] = categoryObj  -- registra para save/restore de estado
 
     -- Recalcula altura total do OptionsFrame somando todos os ModuleContainers
     local function recalcOptionsFrame()
@@ -337,6 +358,7 @@ function Library:CreateCategory(name, position)
     Title.MouseButton2Click:Connect(function()
         categoryObj.Expanded = not categoryObj.Expanded
         OptionsFrame.Visible = categoryObj.Expanded
+        saveCategoryPositions()  -- salva estado ao colapsar/expandir
     end)
 
     function categoryObj:AddModule(moduleName, callback, isTrigger)

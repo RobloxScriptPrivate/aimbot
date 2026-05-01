@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v13 - Hitbox Module) ==========
-print("🔧 Iniciando carregamento remoto v13. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v14 - Restore Categorias) ==========
+print("🔧 Iniciando carregamento remoto v14. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -85,8 +85,16 @@ cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
 
--- Etapa 4: Cleanup global — roda quando K é pressionado ou ScreenGui destruído
-print("\n--- Etapa 4: Configurando Limpeza Global ---")
+-- Etapa 4: Restaura posicoes e estado das categorias APOS todos os modulos
+print("\n--- Etapa 4: Restaurando posicoes das categorias ---")
+task.wait(0.05)  -- aguarda um frame para garantir que todos os frames existem
+if Library.RestoreCategoryPositions then
+    Library:RestoreCategoryPositions()
+    print("✅ Posicoes e estados das categorias restaurados.")
+end
+
+-- Etapa 5: Cleanup global — roda quando K é pressionado ou ScreenGui destruído
+print("\n--- Etapa 5: Configurando Limpeza Global ---")
 
 -- Library.ScreenGui é exposto pela gui.lua para que o loader possa conectar
 local sg = Library.ScreenGui
