@@ -110,10 +110,6 @@ local function openTeleportManager()
             print("⚠️ Preencha o nome e certifique-se de estar num personagem.")
         end
     end)
-
-    window:AddButton("Cancelar", function()
-        window.Frame:Destroy()
-    end)
 end
 
 -- ──────────────────────────────────────────────
