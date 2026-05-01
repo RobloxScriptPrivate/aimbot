@@ -1,4 +1,4 @@
--- ========== TELEPORTE v23 (Correção de Concorrência da UI) ==========
+-- ========== TELEPORTE v25 (Corrige Recarga da UI na Remoção) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -15,14 +15,14 @@ end
 local currentMapPositions = allSavedPositions[CurrentPlaceId]
 local teleportModules = {} 
 
--- Função para teleporte (Contém um yield, que era a causa do problema)
+-- Função para teleporte
 local function teleportTo(pos)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if root then
         root.Velocity = Vector3.new(0, 0, 0)
         root.CFrame = pos
-        task.wait() -- Este yield estava atrasando o Set(false)
+        task.wait()
         if root then root.Velocity = Vector3.new(0, 0, 0) end
     end
 end
@@ -40,23 +40,27 @@ local function refreshTeleportUI()
         local cf = CFrame.new(unpack(posData))
         local teleModule
 
-        -- CORREÇÃO v23: Ação no clique principal com a ordem de operações correta.
         teleModule = TeleportCategory:AddModule(name, function(state) 
             if state then
-                -- PASSO 1: Desliga o toggle IMEDIATAMENTE, antes de qualquer yield.
                 teleModule:Set(false)
-                -- PASSO 2: Executa a ação que contém o yield.
                 teleportTo(cf)
             end
         end, false)
 
-        -- A sub-opção "Remover" já funciona recarregando a UI, o que a destrói.
-        teleModule:AddToggle("❌ Remover", false, function(state)
+        -- CORREÇÃO v25: A remoção e recarga da UI são adiadas para evitar conflitos.
+        local removeToggle
+        removeToggle = teleModule:AddToggle("❌ Remover", false, function(state)
             if state then
-                table.remove(currentMapPositions, i)
-                Library:SaveConfig(CONFIG_FILE, allSavedPositions)
-                print("❌ Ponto '"..name.."' removido.")
-                refreshTeleportUI()
+                -- PASSO 1: Desliga o toggle imediatamente para a UI não travar.
+                removeToggle:Set(false)
+                
+                -- PASSO 2: Adia o resto da lógica para o próximo ciclo, saindo do contexto do callback atual.
+                task.defer(function()
+                    table.remove(currentMapPositions, i)
+                    Library:SaveConfig(CONFIG_FILE, allSavedPositions)
+                    print("❌ Ponto '"..name.."' removido.")
+                    refreshTeleportUI()
+                end)
             end
         end)
 
@@ -92,4 +96,4 @@ end, true)
 -- Carregamento inicial
 refreshTeleportUI()
 
-print("✅ Módulo de Teleporte Avançado (v23) carregado.")
+print("✅ Módulo de Teleporte Avançado (v25) carregado.")
