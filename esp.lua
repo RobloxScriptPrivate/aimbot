@@ -1,6 +1,7 @@
--- ========== ESP V6 (Skeleton Motor6D + Highlight Outline) ==========
--- Skeleton: baseado em UniversalSkeleton (Blissful4992) - usa Motor6D
--- Outline:  usa Instance.new("Highlight") nativo do Roblox
+-- ========== ESP V7 (Skeleton, Outline, Filled) ==========
+-- Skeleton:  Motor6D based (Blissful4992)
+-- Outline:   Highlight (Outline only)
+-- Filled:    Highlight (Filled + Nametag)
 local Library, Visual = ..., select(2, ...)
 
 local Players     = game:GetService("Players")
@@ -12,14 +13,16 @@ local Config = {
     Enabled   = false,
     Skeleton  = true,
     Outline   = false,
+    Preenchido = false, -- Filled mode (Highlight + Nametag)
     Tracers   = false,
-    TeamCheck = false,
+    TeamCheck = true,
 }
 
 local saved = Library:LoadConfig("esp")
 if saved then
     if type(saved.Skeleton)  == "boolean" then Config.Skeleton  = saved.Skeleton  end
     if type(saved.Outline)   == "boolean" then Config.Outline   = saved.Outline   end
+    if type(saved.Preenchido) == "boolean" then Config.Preenchido = saved.Preenchido end
     if type(saved.Tracers)   == "boolean" then Config.Tracers   = saved.Tracers   end
     if type(saved.TeamCheck) == "boolean" then Config.TeamCheck = saved.TeamCheck end
 end
@@ -28,6 +31,7 @@ local function Save()
     Library:SaveConfig("esp", {
         Skeleton  = Config.Skeleton,
         Outline   = Config.Outline,
+        Preenchido = Config.Preenchido,
         Tracers   = Config.Tracers,
         TeamCheck = Config.TeamCheck,
     })
@@ -37,15 +41,22 @@ end
 -- CORES
 -- ──────────────────────────────────────────────
 local function GetColor(player)
-    if not Config.TeamCheck then
-        return Color3.fromRGB(255, 50, 50)
+    if Config.TeamCheck then
+        -- Prioritize the game's built-in team color system
+        if player.TeamColor ~= nil and player.TeamColor.Color ~= Color3.fromRGB(204, 204, 204) then -- Ignore neutral grey
+            return player.TeamColor.Color
+        end
+        -- Fallback to team instances if TeamColor isn't used
+        if LocalPlayer.Team and player.Team then
+            if player.Team == LocalPlayer.Team then
+                return Color3.fromRGB(0, 120, 255) -- Friendly
+            end
+        end
     end
-    local myTeam = LocalPlayer.Team
-    if myTeam and player.Team == myTeam then
-        return Color3.fromRGB(0, 120, 255)
-    end
+    -- Default enemy color
     return Color3.fromRGB(255, 50, 50)
 end
+
 
 -- ──────────────────────────────────────────────
 -- VALIDAÇÃO
@@ -58,20 +69,17 @@ local function IsValidTarget(player)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return false end
     if not char:FindFirstChild("HumanoidRootPart") then return false end
-    if Config.TeamCheck then
-        local myTeam = LocalPlayer.Team
-        if myTeam and player.Team == myTeam then return false end
+
+    -- TeamCheck is now handled by GetColor, so we don't filter out teammates here
+    if Config.TeamCheck and LocalPlayer.Team and player.Team and player.Team == LocalPlayer.Team then
+        return true -- Always show teammates if TeamCheck is on
     end
+
     return true
 end
 
--- ──────────────────────────────────────────────
--- SKELETON via Motor6D (igual UniversalSkeleton)
--- Cada entrada em Lines = { line1, line2, partName, motorName }
--- line1: Part0.center → joint offset C0
--- line2: Part1.center → joint offset C1
--- ──────────────────────────────────────────────
-local skeletons = {}  -- skeletons[player] = { Lines={}, conn=nil }
+-- ==================== SKELETON ====================
+local skeletons = {}
 
 local function newLine(color)
     local l = Drawing.new("Line")
@@ -129,7 +137,6 @@ local function updateSkeleton(player, lines, color)
         local p0, p1 = motor.Part0, motor.Part1
         local c0, c1 = motor.C0, motor.C1
 
-        -- linha 1: centro de Part0 → offset C0
         local a0, v0 = Camera:WorldToViewportPoint(p0.CFrame.p)
         local a1, v1 = Camera:WorldToViewportPoint((p0.CFrame * c0).p)
         if v0 and v1 then
@@ -141,7 +148,6 @@ local function updateSkeleton(player, lines, color)
             l[1].Visible = false
         end
 
-        -- linha 2: centro de Part1 → offset C1
         local b0, w0 = Camera:WorldToViewportPoint(p1.CFrame.p)
         local b1, w1 = Camera:WorldToViewportPoint((p1.CFrame * c1).p)
         if w0 and w1 then
@@ -158,79 +164,82 @@ local function updateSkeleton(player, lines, color)
 end
 
 local function hideSkeleton(player)
-    local s = skeletons[player]
-    if not s then return end
-    for _, l in ipairs(s.Lines) do
-        l[1].Visible = false
-        l[2].Visible = false
+    if skeletons[player] then
+        for _, l in ipairs(skeletons[player].Lines) do
+            l[1].Visible = false
+            l[2].Visible = false
+        end
     end
 end
 
 local function removeSkeleton(player)
-    local s = skeletons[player]
-    if not s then return end
-    if s.conn then s.conn:Disconnect() end
-    removeLines(s.Lines)
-    skeletons[player] = nil
+    if skeletons[player] then
+        if skeletons[player].conn then skeletons[player].conn:Disconnect() end
+        removeLines(skeletons[player].Lines)
+        skeletons[player] = nil
+    end
 end
 
 local function removeAllSkeletons()
     for p in pairs(skeletons) do removeSkeleton(p) end
 end
 
--- ──────────────────────────────────────────────
--- OUTLINE via Highlight instance
--- Highlight.FillTransparency = 1 → sem preenchimento
--- Highlight.OutlineTransparency = 0 → contorno sólido
--- Highlight.DepthMode = AlwaysOnTop → vê através de paredes
--- ──────────────────────────────────────────────
-local highlights = {}  -- highlights[player] = Highlight instance
+-- ==================== HIGHLIGHT (OUTLINE & FILLED) ====================
+local highlights_outline = {}
+local highlights_filled = {}
+local nametags_filled = {} -- BillboardGuis for the "Filled" mode
 
-local function getOrCreateHighlight(player)
-    if highlights[player] and highlights[player].Parent then
-        return highlights[player]
-    end
-    local char = player.Character
-    if not char then return nil end
-    -- Remove highlight antigo se existir
-    local old = char:FindFirstChildOfClass("Highlight")
-    if old then old:Destroy() end
+local function createHighlight(player, parent)
     local h = Instance.new("Highlight")
-    h.FillTransparency    = 1      -- sem preenchimento de cor
-    h.OutlineTransparency = 0      -- contorno totalmente visível
-    h.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
-    h.Parent = char
-    highlights[player] = h
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent = parent
+    h.Adornee = player.Character
     return h
 end
 
-local function removeHighlight(player)
-    local h = highlights[player]
-    if h then
-        pcall(function() h:Destroy() end)
-        highlights[player] = nil
+-- Outline Specific
+local function removeHighlight_Outline(player)
+    if highlights_outline[player] then
+        pcall(function() highlights_outline[player]:Destroy() end)
+        highlights_outline[player] = nil
     end
 end
-
-local function removeAllHighlights()
-    for p in pairs(highlights) do removeHighlight(p) end
+local function removeAllHighlights_Outline()
+    for p in pairs(highlights_outline) do removeHighlight_Outline(p) end
 end
 
--- ──────────────────────────────────────────────
--- TRACER
--- ──────────────────────────────────────────────
-local tracers = {}  -- tracers[player] = Line
+-- Filled Specific
+local function removeHighlight_Filled(player)
+    if highlights_filled[player] then
+        pcall(function() highlights_filled[player]:Destroy() end)
+        highlights_filled[player] = nil
+    end
+    if nametags_filled[player] then
+        pcall(function() nametags_filled[player]:Destroy() end)
+        nametags_filled[player] = nil
+    end
+end
+local function removeAllHighlights_Filled()
+    for p in pairs(highlights_filled) do removeHighlight_Filled(p) end
+end
+
+-- ==================== TRACER ====================
+local tracers = {}
 
 local function getOrCreateTracer(player)
-    if tracers[player] then return tracers[player] end
-    local l = Drawing.new("Line")
-    l.Visible = false; l.Thickness = 1.5
-    tracers[player] = l
-    return l
+    if not tracers[player] then
+        tracers[player] = Drawing.new("Line")
+        tracers[player].Visible = false
+        tracers[player].Thickness = 1.5
+    end
+    return tracers[player]
 end
 
 local function removeTracer(player)
-    if tracers[player] then tracers[player]:Remove(); tracers[player] = nil end
+    if tracers[player] then
+        tracers[player]:Remove()
+        tracers[player] = nil
+    end
 end
 
 local function removeAllTracers()
@@ -241,31 +250,25 @@ end
 -- LOOP PRINCIPAL
 -- ──────────────────────────────────────────────
 local function UpdateESP()
-    -- Limpa jogadores que saíram
-    for p in pairs(skeletons) do
-        if not p or not p.Parent then removeSkeleton(p) end
-    end
-    for p in pairs(highlights) do
-        if not p or not p.Parent then removeHighlight(p) end
-    end
-    for p in pairs(tracers) do
-        if not p or not p.Parent then removeTracer(p) end
-    end
+    -- Cleanup players who left
+    for p in pairs(skeletons) do if not p or not p.Parent then removeSkeleton(p) end end
+    for p in pairs(highlights_outline) do if not p or not p.Parent then removeHighlight_Outline(p) end end
+    for p in pairs(highlights_filled) do if not p or not p.Parent then removeHighlight_Filled(p) end end
+    for p in pairs(tracers) do if not p or not p.Parent then removeTracer(p) end end
 
     for _, player in ipairs(Players:GetPlayers()) do
-        local color = GetColor(player)
         local valid = IsValidTarget(player)
+        local color = GetColor(player)
+        local char = player.Character
 
         -- SKELETON
         if Config.Skeleton and valid then
             local s = skeletons[player]
             if not s then
-                local lines = buildLines(player, color)
-                skeletons[player] = { Lines = lines }
+                skeletons[player] = { Lines = buildLines(player, color) }
                 s = skeletons[player]
             end
-            local needRebuild = updateSkeleton(player, s.Lines, color)
-            if needRebuild or #s.Lines == 0 then
+            if updateSkeleton(player, s.Lines, color) or #s.Lines == 0 then
                 removeLines(s.Lines)
                 s.Lines = buildLines(player, color)
             end
@@ -275,19 +278,60 @@ local function UpdateESP()
 
         -- OUTLINE (Highlight)
         if Config.Outline and valid then
-            local h = getOrCreateHighlight(player)
-            if h then
-                h.OutlineColor = color
-                h.Enabled = true
+            local h = highlights_outline[player]
+            if not h or not h.Parent then h = createHighlight(player, char); highlights_outline[player] = h; end
+            h.OutlineColor = color
+            h.FillTransparency = 1
+            h.OutlineTransparency = 0
+            h.Enabled = true
+        elseif highlights_outline[player] then
+            highlights_outline[player].Enabled = false
+        end
+
+        -- FILLED / PREENCHIDO (Highlight + Nametag)
+        if Config.Preenchido and valid then
+            -- Highlight part
+            local h = highlights_filled[player]
+            if not h or not h.Parent then h = createHighlight(player, char); highlights_filled[player] = h; end
+            h.FillColor = color
+            h.OutlineColor = color
+            h.FillTransparency = 0.5
+            h.OutlineTransparency = 0.2
+            h.Enabled = true
+            
+            -- Nametag part
+            local nameTag = nametags_filled[player]
+            if not nameTag or not nameTag.Parent then
+                nameTag = Instance.new("BillboardGui", char)
+                nameTag.Adornee = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+                nameTag.Size = UDim2.new(0, 200, 0, 50)
+                nameTag.StudsOffset = Vector3.new(0, 3, 0)
+                nameTag.AlwaysOnTop = true
+                
+                local textLabel = Instance.new("TextLabel", nameTag)
+                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                textLabel.BackgroundTransparency = 1
+                textLabel.TextStrokeTransparency = 0
+                textLabel.TextSize = 14
+                textLabel.Font = Enum.Font.SourceSansBold
+                nametags_filled[player] = nameTag
             end
-        else
-            local h = highlights[player]
-            if h then h.Enabled = false end
+            local textLabel = nameTag:FindFirstChildOfClass("TextLabel")
+            if textLabel then
+                textLabel.Text = player.Name
+                textLabel.TextColor3 = color
+            end
+            nameTag.Enabled = true
+
+        elseif highlights_filled[player] then
+            highlights_filled[player].Enabled = false
+            if nametags_filled[player] then
+                nametags_filled[player].Enabled = false
+            end
         end
 
         -- TRACER
         if Config.Tracers and valid then
-            local char = player.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local t = getOrCreateTracer(player)
             t.Color = color
@@ -304,9 +348,8 @@ local function UpdateESP()
             else
                 t.Visible = false
             end
-        else
-            local t = tracers[player]
-            if t then t.Visible = false end
+        elseif tracers[player] then
+            tracers[player].Visible = false
         end
     end
 end
@@ -321,7 +364,8 @@ local function ToggleLoop(state)
     elseif not state and connection then
         connection:Disconnect(); connection = nil
         removeAllSkeletons()
-        removeAllHighlights()
+        removeAllHighlights_Outline()
+        removeAllHighlights_Filled()
         removeAllTracers()
     end
 end
@@ -341,7 +385,12 @@ ESP_Module:AddToggle("💀 Skeleton (Graveto)", Config.Skeleton, function(state)
 end)
 ESP_Module:AddToggle("🔲 Outline (Contorno)", Config.Outline, function(state)
     Config.Outline = state
-    if not state then removeAllHighlights() end
+    if not state then removeAllHighlights_Outline() end
+    Save()
+end)
+ESP_Module:AddToggle("🎨 Preenchido (Cheio)", Config.Preenchido, function(state)
+    Config.Preenchido = state
+    if not state then removeAllHighlights_Filled() end
     Save()
 end)
 ESP_Module:AddToggle("📈 Tracers (Linhas)", Config.Tracers, function(state)
@@ -349,17 +398,17 @@ ESP_Module:AddToggle("📈 Tracers (Linhas)", Config.Tracers, function(state)
     if not state then removeAllTracers() end
     Save()
 end)
-ESP_Module:AddToggle("👥 Checar Time (azul/vermelho)", Config.TeamCheck, function(state)
+ESP_Module:AddToggle("👥 Checar Time (Cores)", Config.TeamCheck, function(state)
     Config.TeamCheck = state
     Save()
 end)
 
-print("✅ ESP V6 (Skeleton Motor6D + Highlight Outline) carregado!")
+print("✅ ESP V7 (Skeleton, Outline, Filled) carregado!")
 
--- Limpa tudo independente do estado atual
 return function()
     if connection then connection:Disconnect(); connection = nil end
     removeAllSkeletons()
-    removeAllHighlights()
+    removeAllHighlights_Outline()
+    removeAllHighlights_Filled()
     removeAllTracers()
 end
