@@ -1,4 +1,4 @@
--- ========== MOVIMENTO v9.1 (Módulos Separados Fix) ==========
+-- ========== MOVIMENTO V2 (Fly + Noclip + Freecam + Infinite Jump) ==========
 local Library, MovementCategory = ..., select(2, ...)
 
 -- Serviços
@@ -84,9 +84,45 @@ MovementCategory:AddModule("📷 Freecam", function(enabled)
     end
 end)
 
-print("✅ Módulos de Movimento carregados.")
+-- ──────────────────────────────────────────────
+-- INFINITE JUMP (estilo Infinite Yield)
+-- Usa JumpRequest para interceptar cada tentativa
+-- de pulo e força o HumanoidState para Jumping,
+-- permitindo pular no ar infinitamente.
+-- ──────────────────────────────────────────────
+local infiniteJumpEnabled = false
+local infiniteJumpConn = nil
+local charConn = nil
+
+local function connectInfiniteJump(character)
+    if infiniteJumpConn then infiniteJumpConn:Disconnect(); infiniteJumpConn = nil end
+    local humanoid = character and character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
+    infiniteJumpConn = UserInputService.JumpRequest:Connect(function()
+        if not infiniteJumpEnabled then return end
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end)
+end
+
+MovementCategory:AddModule("🦘 Infinite Jump", function(enabled)
+    infiniteJumpEnabled = enabled
+    if enabled then
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        connectInfiniteJump(char)
+        charConn = LocalPlayer.CharacterAdded:Connect(function(newChar)
+            if infiniteJumpEnabled then connectInfiniteJump(newChar) end
+        end)
+    else
+        if infiniteJumpConn then infiniteJumpConn:Disconnect(); infiniteJumpConn = nil end
+        if charConn then charConn:Disconnect(); charConn = nil end
+    end
+end)
+
+print("✅ Módulos de Movimento V2 carregados.")
 return function()
     if flyConnection then flyConnection:Disconnect() end
     if noclipConnection then noclipConnection:Disconnect() end
     if freecamConnection then freecamConnection:Disconnect() end
+    if infiniteJumpConn then infiniteJumpConn:Disconnect() end
+    if charConn then charConn:Disconnect() end
 end
