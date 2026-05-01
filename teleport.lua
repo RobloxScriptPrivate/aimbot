@@ -1,4 +1,4 @@
--- ========== TELEPORTE v15 (Cache por Mapa, Ordenado, Sub-opções) ==========
+-- ========== TELEPORTE v15.1 (Cache Busting) ==========
 local Library, TeleportCategory = ..., select(2, ...)
 
 -- Serviços
@@ -7,8 +7,9 @@ local LocalPlayer = Players.LocalPlayer
 local CurrentPlaceId = tostring(game.PlaceId)
 
 -- Configuração
-local CONFIG_FILE = "Manus_Teleports_V3" -- Novo arquivo para nova estrutura de dados
+local CONFIG_FILE = "Manus_Teleports_V4" -- ARQUIVO ATUALIZADO PARA FORÇAR RE-LEITURA
 local allSavedPositions = Library:LoadConfig(CONFIG_FILE) or {}
+
 -- Garante que o container para o mapa atual exista e seja uma tabela (array)
 if not allSavedPositions[CurrentPlaceId] or type(allSavedPositions[CurrentPlaceId]) ~= 'table' then
     allSavedPositions[CurrentPlaceId] = {}
@@ -99,4 +100,4 @@ end, true)
 -- Carregamento inicial dos pontos do mapa atual
 refreshTeleportUI()
 
-print("✅ Módulo de Teleporte Avançado (v15) carregado.")
+print("✅ Módulo de Teleporte Avançado (v15.1) carregado.")
