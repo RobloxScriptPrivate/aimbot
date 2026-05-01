@@ -549,12 +549,19 @@ SettingsBtn.MouseButton1Click:Connect(function()
             end
         end)
     end)
-    win:AddButton("❌ Remover Script (Atalho: K)", function() ScreenGui:Destroy() end)
+    win:AddButton("❌ Remover Script (Atalho: K)", function()
+        saveCategoryPositions()  -- salva posicao e estado antes de destruir
+        ScreenGui:Destroy()
+    end)
 end)
 
 -- ATALHO GLOBAL PARA REMOVER (K)
+-- Salva posicoes ANTES de destruir para que o restore funcione na proxima execucao
 UserInputService.InputBegan:Connect(function(input, processed)
-    if not processed and input.KeyCode == Library.RemoveKey then ScreenGui:Destroy() end
+    if not processed and input.KeyCode == Library.RemoveKey then
+        saveCategoryPositions()  -- salva posicao e estado antes de destruir
+        ScreenGui:Destroy()
+    end
 end)
 
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
