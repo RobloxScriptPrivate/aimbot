@@ -426,19 +426,26 @@ function Library:CreateCategory(name, position)
             end)
         end
 
-        -- Dropdown compacto: 18px de altura, texto pequeno
-        function moduleObj:AddDropdown(t, o, c)
+        -- Dropdown compacto: aceita defaultValue opcional para restaurar config salva
+        -- Assinatura: AddDropdown(texto, opcoes, callback, valorInicial)
+        function moduleObj:AddDropdown(t, o, c, defaultValue)
+            -- Encontra o indice do valor inicial (salvo ou primeiro da lista)
+            local i = 1
+            if defaultValue ~= nil then
+                for idx, v in ipairs(o) do
+                    if tostring(v) == tostring(defaultValue) then i = idx; break end
+                end
+            end
             local b = Instance.new("TextButton")
             b.Size = UDim2.new(1, 0, 0, 18)
             b.BackgroundTransparency = 1
-            b.Text = "  " .. t .. ": " .. tostring(o[1])
+            b.Text = "  " .. t .. ": " .. tostring(o[i])
             b.TextColor3 = Color3.fromRGB(180, 180, 180)
             b.Font = Enum.Font.SourceSans
             b.TextSize = 12
             b.TextXAlignment = Enum.TextXAlignment.Left
             b.LayoutOrder = 2
             b.Parent = SubFrame
-            local i = 1
             b.MouseButton1Click:Connect(function()
                 i = i + 1; if i > #o then i = 1 end
                 b.Text = "  " .. t .. ": " .. tostring(o[i]); c(o[i])

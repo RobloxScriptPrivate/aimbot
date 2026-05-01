@@ -14,7 +14,7 @@ local Config = {
     AimPart    = "Head",
     FOV        = 150,
     TeamCheck  = true,
-    ShowFOV    = true,
+    ShowFOV    = false,  -- padrão false: só mostra se o usuário ativar
     ShowPanels = true,
     Smoothing  = 0.2,
     F_KeyMode  = "Pressionar",
@@ -212,10 +212,10 @@ MainToggle:AddToggle("📊 Mostrar Painéis", Config.ShowPanels, function(state)
 end)
 MainToggle:AddDropdown("🎯 Parte do Corpo", {"Head", "HumanoidRootPart"}, function(val)
     Config.AimPart = val; Save()
-end)
+end, Config.AimPart)
 MainToggle:AddDropdown(" F Atalho", {"Pressionar", "Alternar"}, function(val)
     Config.F_KeyMode = val; Save()
-end)
+end, Config.F_KeyMode)
 MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(val)
     Config.FOV = val; Save()
 end)
@@ -227,17 +227,23 @@ print("✅ Aimbot V2.7 carregado!")
 
 -- CLEANUP COMPLETO ao pressionar K
 return function()
+    -- Zera estado imediatamente para que o loop pare de desenhar
+    Config.Enabled = false
+    aimingRight    = false
+    aimingF        = false
+    f_key_toggled  = false
+    lockedTargetRight = nil
+    lockedTargetF     = nil
+    -- Esconde o circulo antes de parar o loop
+    pcall(function() circle.Visible = false end)
     -- Para o loop de RenderStepped
     if updateConnection then updateConnection:Disconnect(); updateConnection = nil end
     -- Desconecta os inputs de mouse e teclado
     if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
     if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
-    -- Zera estado de mira
-    aimingRight   = false
-    aimingF       = false
-    f_key_toggled = false
-    lockedTargetRight = nil
-    lockedTargetF     = nil
-    -- Remove Drawing objects
-    circle:Remove()
+    -- Esconde overlays
+    pcall(function() overlayRight:SetVisible(false) end)
+    pcall(function() overlayF:SetVisible(false) end)
+    -- Remove Drawing object com segurança
+    pcall(function() circle:Remove() end)
 end
