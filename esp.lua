@@ -16,6 +16,23 @@ local Config = {
     TeamCheck = false,
 }
 
+local saved = Library:LoadConfig("esp")
+if saved then
+    if type(saved.Skeleton)  == "boolean" then Config.Skeleton  = saved.Skeleton  end
+    if type(saved.Outline)   == "boolean" then Config.Outline   = saved.Outline   end
+    if type(saved.Tracers)   == "boolean" then Config.Tracers   = saved.Tracers   end
+    if type(saved.TeamCheck) == "boolean" then Config.TeamCheck = saved.TeamCheck end
+end
+
+local function Save()
+    Library:SaveConfig("esp", {
+        Skeleton  = Config.Skeleton,
+        Outline   = Config.Outline,
+        Tracers   = Config.Tracers,
+        TeamCheck = Config.TeamCheck,
+    })
+end
+
 -- ──────────────────────────────────────────────
 -- CORES
 -- ──────────────────────────────────────────────
@@ -320,17 +337,21 @@ end, false)
 ESP_Module:AddToggle("💀 Skeleton (Graveto)", Config.Skeleton, function(state)
     Config.Skeleton = state
     if not state then removeAllSkeletons() end
+    Save()
 end)
 ESP_Module:AddToggle("🔲 Outline (Contorno)", Config.Outline, function(state)
     Config.Outline = state
     if not state then removeAllHighlights() end
+    Save()
 end)
 ESP_Module:AddToggle("📈 Tracers (Linhas)", Config.Tracers, function(state)
     Config.Tracers = state
     if not state then removeAllTracers() end
+    Save()
 end)
 ESP_Module:AddToggle("👥 Checar Time (azul/vermelho)", Config.TeamCheck, function(state)
     Config.TeamCheck = state
+    Save()
 end)
 
 print("✅ ESP V6 (Skeleton Motor6D + Highlight Outline) carregado!")

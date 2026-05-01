@@ -21,20 +21,31 @@ Library.Whitelist = {}
 --[[
     1. MÉTODOS DE CONFIGURAÇÃO
 ]]
-function Library:SaveConfig(name, data)
-    if writefile then
-        pcall(function()
-            writefile(name .. ".json", HttpService:JSONEncode(data))
-        end)
+-- Pasta base dos configs no workspace do executor
+local CONFIG_FOLDER = "Universal Project"
+
+-- Garante que a pasta existe (makefolder é API padrão dos executores)
+pcall(function()
+    if makefolder and not isfolder(CONFIG_FOLDER) then
+        makefolder(CONFIG_FOLDER)
     end
+end)
+
+function Library:SaveConfig(name, data)
+    pcall(function()
+        if writefile then
+            writefile(CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(data))
+        end
+    end)
 end
 
 function Library:LoadConfig(name)
-    if readfile and isfile and isfile(name .. ".json") then
-        local success, result = pcall(function()
-            return HttpService:JSONDecode(readfile(name .. ".json"))
+    local path = CONFIG_FOLDER .. "/" .. name .. ".json"
+    if readfile and isfile and isfile(path) then
+        local ok, result = pcall(function()
+            return HttpService:JSONDecode(readfile(path))
         end)
-        if success then return result end
+        if ok and type(result) == "table" then return result end
     end
     return nil
 end
@@ -114,13 +125,34 @@ Instance.new("UICorner", SettingsBtn).CornerRadius = UDim.new(0, 4)
 --[[
     3. FUNÇÕES UTILITÁRIAS
 ]]
-local function makeDraggable(frame, dragHandle)
+-- Salva posicoes das categorias na pasta Universal Project
+local function saveCategoryPositions()
+    local positions = {}
+    for _, cat in ipairs(Library.Categories) do
+        if cat and cat.Parent then
+            positions[cat.Name] = {
+                x = cat.Position.X.Offset,
+                y = cat.Position.Y.Offset,
+            }
+        end
+    end
+    Library:SaveConfig("category_positions", positions)
+end
+
+local function loadCategoryPositions()
+    return Library:LoadConfig("category_positions")
+end
+
+local function makeDraggable(frame, dragHandle, onDragEnd)
     local dragging, dragInput, dragStart, startPos
     dragHandle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true; dragStart = input.Position; startPos = frame.Position
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    if onDragEnd then onDragEnd() end
+                end
             end)
         end
     end)
@@ -259,6 +291,13 @@ function Library:CreateWindow(title, size, position)
 end
 
 function Library:CreateCategory(name, position)
+    -- Tenta restaurar posicao salva; usa posicao padrao se nao houver
+    local savedPos = loadCategoryPositions()
+    if savedPos and savedPos[name] then
+        local sp = savedPos[name]
+        position = UDim2.new(0, sp.x, 0, sp.y)
+    end
+
     local CategoryFrame = Instance.new("Frame")
     CategoryFrame.Name = name
     CategoryFrame.Size = UDim2.new(0, 150, 0, 30)
@@ -280,7 +319,7 @@ function Library:CreateCategory(name, position)
     local UIListLayout = Instance.new("UIListLayout", OptionsFrame)
     UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    makeDraggable(CategoryFrame, Title)
+    makeDraggable(CategoryFrame, Title, saveCategoryPositions)
     local categoryObj = { Frame = CategoryFrame, Options = OptionsFrame, Expanded = true }
     table.insert(Library.Categories, CategoryFrame)
 

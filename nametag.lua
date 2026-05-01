@@ -24,6 +24,25 @@ local Config = {
     TextSize = 14,
 }
 
+local saved = Library:LoadConfig("nametag")
+if saved then
+    if type(saved.TeamCheck)     == "boolean" then Config.TeamCheck     = saved.TeamCheck     end
+    if type(saved.ShowHealth)    == "boolean" then Config.ShowHealth    = saved.ShowHealth    end
+    if type(saved.ShowDistance)  == "boolean" then Config.ShowDistance  = saved.ShowDistance  end
+    if type(saved.ShowName)      == "boolean" then Config.ShowName      = saved.ShowName      end
+    if type(saved.TextSize)      == "number"  then Config.TextSize      = saved.TextSize      end
+end
+
+local function Save()
+    Library:SaveConfig("nametag", {
+        TeamCheck    = Config.TeamCheck,
+        ShowHealth   = Config.ShowHealth,
+        ShowDistance = Config.ShowDistance,
+        ShowName     = Config.ShowName,
+        TextSize     = Config.TextSize,
+    })
+end
+
 -- VARIÁVEIS
 local nametags = {}
 local localCharacter = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -156,23 +175,23 @@ local Nametag = Visual:AddModule("🏷️ Nametags", function(state)
 end, false)
 
 Nametag:AddToggle("👥 Mostrar por Time", Config.TeamCheck, function(state)
-    Config.TeamCheck = state
+    Config.TeamCheck = state; Save()
 end)
 
 Nametag:AddToggle("📝 Mostrar Nome", Config.ShowName, function(state)
-    Config.ShowName = state
+    Config.ShowName = state; Save()
 end)
 
 Nametag:AddToggle("❤️ Mostrar Vida", Config.ShowHealth, function(state)
-    Config.ShowHealth = state
+    Config.ShowHealth = state; Save()
 end)
 
 Nametag:AddToggle("📏 Mostrar Distância", Config.ShowDistance, function(state)
-    Config.ShowDistance = state
+    Config.ShowDistance = state; Save()
 end)
 
 Nametag:AddSlider("📏 Tamanho do Texto", 10, 20, Config.TextSize, function(value)
-    Config.TextSize = value
+    Config.TextSize = value; Save()
 end)
 
 print("✅ Nametag V2 carregado!")

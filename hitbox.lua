@@ -7,10 +7,23 @@ local LocalPlayer = Players.LocalPlayer
 
 -- CONFIGURAÇÕES
 local Config = {
-    Enabled    = false,
-    Size       = 10,       -- tamanho do HumanoidRootPart expandido
-    TeamCheck  = false,    -- só expande inimigos quando ativo
+    Enabled   = false,
+    Size      = 10,
+    TeamCheck = false,
 }
+
+local saved = Library:LoadConfig("hitbox")
+if saved then
+    if type(saved.Size)      == "number"  then Config.Size      = saved.Size      end
+    if type(saved.TeamCheck) == "boolean" then Config.TeamCheck = saved.TeamCheck end
+end
+
+local function Save()
+    Library:SaveConfig("hitbox", {
+        Size      = Config.Size,
+        TeamCheck = Config.TeamCheck,
+    })
+end
 
 -- Guarda os tamanhos originais para restaurar ao desativar
 local originalSizes = {}
@@ -116,11 +129,11 @@ local HitboxModule = CombatCategory:AddModule("💥 Hitbox Expander", function(s
 end, false)
 
 HitboxModule:AddSlider("📐 Tamanho", 3, 50, Config.Size, function(val)
-    Config.Size = val
+    Config.Size = val; Save()
 end)
 
 HitboxModule:AddToggle("👥 Só Inimigos (Time)", Config.TeamCheck, function(state)
-    Config.TeamCheck = state
+    Config.TeamCheck = state; Save()
 end)
 
 print("✅ Hitbox Expander V1.0 carregado!")
