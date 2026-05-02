@@ -122,9 +122,17 @@ local function removeAllDeadMarkers() for p in pairs(dead_markers) do removeDead
 local function hideAllESP(player) hideSkeleton(player); if highlights_outline[player] then highlights_outline[player].Enabled = false end; if highlights_filled[player] then highlights_filled[player].Enabled = false end; if nametags_filled[player] then nametags_filled[player].Enabled = false end; if tracers[player] then tracers[player].Visible = false end; if dead_markers[player] then dead_markers[player].Enabled = false end; end
 
 -- ──────────────────────────────────────────────
--- LOOP PRINCIPAL (REWORKED)
+-- LOOP PRINCIPAL (OTIMIZADO)
 -- ──────────────────────────────────────────────
+local lastUpdate = 0
+local updateInterval = 0.1 -- Roda 10x por segundo, e não a cada frame. Mais leve!
+
 local function UpdateESP()
+    local now = os.clock()
+    if now - lastUpdate < updateInterval then
+        return -- Pula o frame se o tempo não passou
+    end
+    lastUpdate = now
     -- Cleanup players who left
     for p in pairs(skeletons) do if not p or not p.Parent then removeSkeleton(p) end end
     for p in pairs(highlights_outline) do if not p or not p.Parent then removeHighlight_Outline(p) end end
