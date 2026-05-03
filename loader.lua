@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v18 - Killaura & Aimbot Restored) ==========
-print("🔧 Iniciando carregamento v18. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v19 - Arsenal Overhaul) ==========
+print("🔧 Iniciando carregamento v19. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -46,7 +46,7 @@ LoadModule("movement.lua", Movement)
 LoadModule("teleport.lua", Teleport)
 
 --[[
-    KILLAURA INTEGRADO (RESTAURADO)
+    KILLAURA INTEGRADO
 ]]
 do
     local KillauraModule = Combat:AddModule("🎯 Killaura", function(state)
@@ -90,7 +90,6 @@ do
     print("✅ Killaura (Integrado) carregado!")
 end
 
-
 -- Módulo de Scanner de Mapa
 do
     local scanWindow
@@ -127,7 +126,9 @@ do
     Misc:AddModule("🔬 Scan do Mapa", runMapScan, true)
 end
 
--- Módulo Arsenal
+--[[
+    Módulo Arsenal (v2.0 - UI de Cards com Botão TP)
+]]
 do
     local arsenalWindow, weaponListFrame
     local toolGiverNames = { "ToolGiver", "WeaponGiver", "SwordGiver", "GunGiver" }
@@ -136,32 +137,81 @@ do
         if not weaponListFrame then return end
         weaponListFrame:ClearAllChildren()
         local foundCount = 0
+
         local function lookForGivers(parent)
             for _, obj in ipairs(parent:GetChildren()) do
                 local isGiver = false
                 for _, name in ipairs(toolGiverNames) do if obj.Name:find(name) then isGiver = true break end end
-                if isGiver or obj:FindFirstChildOfClass("Tool") then
-                    local tool = obj:FindFirstChildOfClass("Tool") or obj
-                    if tool:IsA("Tool") then
+                
+                if isGiver or obj:IsA("Tool") or obj:FindFirstChildOfClass("Tool") then
+                    local tool = obj:IsA("Tool") and obj or obj:FindFirstChildOfClass("Tool")
+                    
+                    if tool and tool:IsA("Tool") then
                         foundCount = foundCount + 1
-                        local btn = Instance.new("TextButton")
-                        btn.Text = "Pegar: " .. tool.Name; 
-                        btn.Size = UDim2.new(0.9, 0, 0, 40); 
-                        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); 
-                        btn.TextColor3 = Color3.fromRGB(255, 255, 255); 
-                        btn.Font = Enum.Font.SourceSansBold; 
-                        btn.TextSize = 16; 
-                        btn.Parent = weaponListFrame; 
-                        Instance.new("UICorner", btn)
-                        btn.MouseButton1Click:Connect(function()
+                        
+                        -- Card UI
+                        local card = Instance.new("Frame")
+                        card.Size = UDim2.new(0.95, 0, 0, 65)
+                        card.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                        card.BorderSizePixel = 0
+                        card.Parent = weaponListFrame
+                        Instance.new("UICorner", card)
+
+                        local title = Instance.new("TextLabel")
+                        title.Size = UDim2.new(1, -10, 0, 25)
+                        title.Position = UDim2.new(0, 5, 0, 5)
+                        title.Text = tool.Name
+                        title.Font = Enum.Font.SourceSansBold
+                        title.TextSize = 15
+                        title.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        title.TextXAlignment = Enum.TextXAlignment.Left
+                        title.BackgroundTransparency = 1
+                        title.Parent = card
+
+                        local pegarBtn = Instance.new("TextButton")
+                        pegarBtn.Size = UDim2.new(0.4, 0, 0, 28)
+                        pegarBtn.Position = UDim2.new(0.05, 0, 0, 32)
+                        pegarBtn.Text = "✔️ Pegar"
+                        pegarBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+                        pegarBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        pegarBtn.Font = Enum.Font.SourceSansBold
+                        pegarBtn.Parent = card
+                        Instance.new("UICorner", pegarBtn)
+
+                        local tpBtn = Instance.new("TextButton")
+                        tpBtn.Size = UDim2.new(0.4, 0, 0, 28)
+                        tpBtn.Position = UDim2.new(0.55, 0, 0, 32)
+                        tpBtn.Text = "🌌 TP"
+                        tpBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 160)
+                        tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        tpBtn.Font = Enum.Font.SourceSansBold
+                        tpBtn.Parent = card
+                        Instance.new("UICorner", tpBtn)
+                        
+                        -- --- Lógica dos Botões ---
+                        pegarBtn.MouseButton1Click:Connect(function()
                             local root = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                            if root then
-                                if obj:IsA("BasePart") then firetouchinterest(root, obj, 0); firetouchinterest(root, obj, 1)
-                                elseif obj:FindFirstChild("Handle") then firetouchinterest(root, obj.Handle, 0); firetouchinterest(root, obj.Handle, 1) end
+                            if not root then return end
+                            local touchPart = obj:IsA("BasePart") and obj or obj:FindFirstChild("Handle") or tool:FindFirstChild("Handle")
+                            if touchPart then
+                                firetouchinterest(root, touchPart, 0)
+                                firetouchinterest(root, touchPart, 1)
+                                print("[Arsenal] Tentativa de 'Pegar' para: " .. tool.Name)
+                            end
+                        end)
+
+                        tpBtn.MouseButton1Click:Connect(function()
+                            local root = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                            if not root then return end
+                            local targetPart = obj:IsA("BasePart") and obj or obj:FindFirstChild("Handle") or tool:FindFirstChild("Handle")
+                            if targetPart and targetPart.Position then
+                                root.CFrame = CFrame.new(targetPart.Position) * CFrame.new(0, 3, 0)
+                                print("[Arsenal] Teleportado para: " .. tool.Name)
                             end
                         end)
                     end
                 end
+                -- Recursão
                 if #obj:GetChildren() > 0 then lookForGivers(obj) end
             end
         end
@@ -172,13 +222,13 @@ do
     end
 
     local function openArsenalWindow()
-        arsenalWindow = Library:CreateWindow("Arsenal do Mapa", UDim2.new(0, 300, 0, 400))
+        arsenalWindow = Library:CreateWindow("Arsenal do Mapa", UDim2.new(0, 350, 0, 450))
         weaponListFrame = arsenalWindow:AddScrollableList()
-        weaponListFrame.Size = UDim2.new(0.95, 0, 0, 300)
+        weaponListFrame.Size = UDim2.new(0.95, 0, 0, 350)
         arsenalWindow:AddButton("Atualizar Lista", scanAndPopulateWeapons)
         scanAndPopulateWeapons()
     end
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
 end
 
-print("✅ Carregamento Finalizado (v18).")
+print("✅ Carregamento Finalizado (v19).")
