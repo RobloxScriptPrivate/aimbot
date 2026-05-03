@@ -1,6 +1,5 @@
--- ========== LOADER PRINCIPAL (v16.5 - Final Polish) ==========
--- Corrigido: Aimbot aparecendo, Scan no F9, Arsenal com texto maior.
-print("🔧 Iniciando carregamento v16.5. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v17 - Killaura & Aimbot Fix) ==========
+print("🔧 Iniciando carregamento v17. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -38,15 +37,16 @@ local function LoadModule(filename, category)
     end
 end
 
--- Carregar módulos (Aimbot agora deve aparecer corretamente)
+-- Carregar módulos (Aimbot e Killaura restaurados)
 LoadModule("aimbot.lua",   Combat)
+LoadModule("killaura.lua", Combat) -- <<<< LINHA DO KILLAURA ADICIONADA DE VOLTA
 LoadModule("hitbox.lua",   Combat)
 LoadModule("esp.lua",      Visual)
 LoadModule("nametag.lua",  Visual)
 LoadModule("movement.lua", Movement)
 LoadModule("teleport.lua", Teleport)
 
--- Módulo de Scanner de Mapa (Scan no F9)
+-- Módulo de Scanner de Mapa
 do
     local scanWindow
     local function runMapScan()
@@ -62,7 +62,7 @@ do
                 if name:find("tool") or name:find("giver") or instance:IsA("Tool") or instance:IsA("ClickDetector") then
                     local entry = "[" .. instance.ClassName .. "] " .. instance:GetFullName()
                     table.insert(logLines, entry)
-                    print("🔬 Scan: " .. entry) -- Envia para o F9
+                    print("🔬 Scan: " .. entry)
                 end
                 for _, child in ipairs(instance:GetChildren()) do scan(child, depth + 1) end
             end)
@@ -82,7 +82,7 @@ do
     Misc:AddModule("🔬 Scan do Mapa", runMapScan, true)
 end
 
--- Módulo Arsenal (Texto maior nos botões)
+-- Módulo Arsenal
 do
     local arsenalWindow, weaponListFrame
     local toolGiverNames = { "ToolGiver", "WeaponGiver", "SwordGiver", "GunGiver" }
@@ -101,11 +101,11 @@ do
                         foundCount = foundCount + 1
                         local btn = Instance.new("TextButton")
                         btn.Text = "Pegar: " .. tool.Name; 
-                        btn.Size = UDim2.new(0.9, 0, 0, 40); -- Botão maior
+                        btn.Size = UDim2.new(0.9, 0, 0, 40); 
                         btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); 
                         btn.TextColor3 = Color3.fromRGB(255, 255, 255); 
                         btn.Font = Enum.Font.SourceSansBold; 
-                        btn.TextSize = 16; -- Texto maior
+                        btn.TextSize = 16; 
                         btn.Parent = weaponListFrame; 
                         Instance.new("UICorner", btn)
                         btn.MouseButton1Click:Connect(function()
@@ -136,4 +136,4 @@ do
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
 end
 
-print("✅ Carregamento Finalizado (v16.5).")
+print("✅ Carregamento Finalizado (v17).")

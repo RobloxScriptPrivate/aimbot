@@ -1,4 +1,4 @@
--- ========== AIMBOT DUPLO V3.0 (WallCheck Otimizado) ==========
+-- ========== AIMBOT DUPLO V3.1 (WallCheck & Drawing Fix) ==========
 local Library, AimCategory = ..., select(2, ...)
 
 -- Serviços
@@ -14,7 +14,7 @@ local Config = {
     AimPart    = "Head",
     FOV        = 150,
     TeamCheck  = true,
-    WallCheck  = true, -- NOVO: Checagem de paredes
+    WallCheck  = true,
     ShowFOV    = false,
     ShowPanels = true,
     Smoothing  = 0.9,
@@ -24,40 +24,31 @@ local Config = {
 -- Carrega config salva
 local saved = Library:LoadConfig("aimbot")
 if saved then
-    if type(saved.AimPart)    == "string"  then Config.AimPart    = saved.AimPart    end
-    if type(saved.FOV)        == "number"  then Config.FOV        = saved.FOV        end
-    if type(saved.TeamCheck)  == "boolean" then Config.TeamCheck  = saved.TeamCheck  end
-    if type(saved.WallCheck)  == "boolean" then Config.WallCheck  = saved.WallCheck  end
-    if type(saved.ShowFOV)    == "boolean" then Config.ShowFOV    = saved.ShowFOV    end
-    if type(saved.ShowPanels) == "boolean" then Config.ShowPanels = saved.ShowPanels end
-    if type(saved.Smoothing)  == "number"  then Config.Smoothing  = saved.Smoothing  end
-    if type(saved.F_KeyMode)  == "string"  then Config.F_KeyMode  = saved.F_KeyMode  end
+    for i,v in pairs(saved) do Config[i] = v end
 end
 
 local function Save()
-    Library:SaveConfig("aimbot", {
-        AimPart    = Config.AimPart,
-        FOV        = Config.FOV,
-        TeamCheck  = Config.TeamCheck,
-        WallCheck  = Config.WallCheck,
-        ShowFOV    = Config.ShowFOV,
-        ShowPanels = Config.ShowPanels,
-        Smoothing  = Config.Smoothing,
-        F_KeyMode  = Config.F_KeyMode,
-    })
+    Library:SaveConfig("aimbot", Config)
 end
 
 -- VARIÁVEIS DE ESTADO
 local aimingRight, aimingF, f_key_toggled = false, false, false
 local lockedTargetRight, lockedTargetF = nil, nil
 
--- ELEMENTOS VISUAIS
-local circle = Drawing.new("Circle"); circle.Color=Color3.fromRGB(0,150,255); circle.Thickness=1.5; circle.Filled=false; circle.Transparency=0.7; circle.Visible=false
+-- ELEMENTOS VISUAIS (COM CORREÇÃO PARA DRAWING)
+local circle = {Visible=false} -- Cria uma tabela vazia para evitar erros
+local success, result = pcall(function()
+    local c = Drawing.new("Circle")
+    c.Color=Color3.fromRGB(0,150,255); c.Thickness=1.5; c.Filled=false; c.Transparency=0.7; c.Visible=false
+    circle = c -- Somente atribui se a criação for bem sucedida
+end)
+if not success then print("Aimbot: Objeto 'Drawing' não suportado. O círculo de FOV será desativado.") end
+
 local overlayRight = Library:CreateOverlay("TargetRight","🎯 ALVO FOV (Direito)",Color3.fromRGB(0,150,255))
 local overlayF = Library:CreateOverlay("TargetF","👑 ALVO PRÓXIMO (Tecla F)",Color3.fromRGB(0,255,120))
 overlayRight:SetPosition(UDim2.new(0,20,0.5,-90)); overlayF:SetPosition(UDim2.new(0,20,0.5,10))
 
--- PARÂMETROS DO RAYCAST (para não recriar a cada frame)
+-- PARÂMETROS DO RAYCAST
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
@@ -72,20 +63,14 @@ end
 local function IsAlive(char) local h=char and char:FindFirstChildOfClass("Humanoid"); return h and h.Health>0 end
 local function GetTargetPart(char) return char:FindFirstChild(Config.AimPart) or char:FindFirstChild("HumanoidRootPart") end
 
--- Função de Checagem de Parede Otimizada
 local function IsVisible(targetPlayer, targetPart)
-    if not Config.WallCheck then return true end -- Se a checagem estiver desligada, considera sempre visível
-
+    if not Config.WallCheck then return true end
     local localCharacter = LocalPlayer.Character
     if not localCharacter then return false end
-
-    raycastParams.FilterDescendantsInstances = {localCharacter, targetPlayer.Character} -- Ignora o nosso personagem e o do alvo
-    
+    raycastParams.FilterDescendantsInstances = {localCharacter, targetPlayer.Character}
     local rayOrigin = Camera.CFrame.Position
     local rayDirection = targetPart.Position - rayOrigin
     local rayResult = workspace:Raycast(rayOrigin, rayDirection, raycastParams)
-    
-    -- Se rayResult for nil, o caminho está livre. Se não for nil, algo está no caminho.
     return not rayResult
 end
 
@@ -141,13 +126,15 @@ local function StartLoop()
     if updateConnection then updateConnection:Disconnect() end
     updateConnection = RunService.RenderStepped:Connect(function()
         if not Config.Enabled then circle.Visible=false; overlayRight:SetVisible(false); overlayF:SetVisible(false); return end
-        circle.Visible, circle.Radius, circle.Position = Config.ShowFOV, Config.FOV, UserInputService:GetMouseLocation()
+        circle.Visible = Config.ShowFOV
+        if circle.Radius then circle.Radius = Config.FOV; circle.Position = UserInputService:GetMouseLocation() end
 
         if Config.F_KeyMode == "Alternar" then aimingF = f_key_toggled end
 
         local function Aim(target)
             if target and target.Character then
                 local part = GetTargetPart(target.Character)
+                if not part then return end
                 local aimSpeed = Config.Smoothing
                 if aimSpeed >= 1 then Camera.CFrame = CFrame.new(Camera.CFrame.Position, part.Position)
                 else Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, part.Position), aimSpeed) end
@@ -161,8 +148,8 @@ local function StartLoop()
         else lockedTargetF = nil end
 
         if Config.ShowPanels then
-            if lockedTargetRight then local p=GetTargetPart(lockedTargetRight.Character); local d=(Camera.CFrame.Position-p.Position).Magnitude; overlayRight:Update(lockedTargetRight,d,"🎯 FOV Lock") else overlayRight:SetVisible(false) end
-            if lockedTargetF then local p=GetTargetPart(lockedTargetF.Character); local d=(Camera.CFrame.Position-p.Position).Magnitude; overlayF:Update(lockedTargetF,d,"👑 Alvo Próximo") else overlayF:SetVisible(false) end
+            if lockedTargetRight and lockedTargetRight.Character then local p=GetTargetPart(lockedTargetRight.Character); if p then local d=(Camera.CFrame.Position-p.Position).Magnitude; overlayRight:Update(lockedTargetRight,d,"🎯 FOV Lock") end else overlayRight:SetVisible(false) end
+            if lockedTargetF and lockedTargetF.Character then local p=GetTargetPart(lockedTargetF.Character); if p then local d=(Camera.CFrame.Position-p.Position).Magnitude; overlayF:Update(lockedTargetF,d,"👑 Alvo Próximo") end else overlayF:SetVisible(false) end
         else overlayRight:SetVisible(false); overlayF:SetVisible(false) end
     end)
 end
@@ -175,7 +162,7 @@ local inputEndedConn = UserInputService.InputEnded:Connect(function(i) if i.User
 local MainToggle = AimCategory:AddModule("🔥 Aimbot Master", function(s) Config.Enabled=s; if s then StartLoop() end end, false)
 
 MainToggle:AddToggle("👥 Checar Time", Config.TeamCheck, function(s) Config.TeamCheck=s; Save() end)
-MainToggle:AddToggle("🧱 Checar Paredes", Config.WallCheck, function(s) Config.WallCheck=s; Save() end) -- NOVO
+MainToggle:AddToggle("🧱 Checar Paredes", Config.WallCheck, function(s) Config.WallCheck=s; Save() end)
 MainToggle:AddToggle("👁️ Mostrar FOV", Config.ShowFOV, function(s) Config.ShowFOV=s; Save() end)
 MainToggle:AddToggle("📊 Mostrar Painéis", Config.ShowPanels, function(s) Config.ShowPanels=s; Save() end)
 MainToggle:AddDropdown("🎯 Parte do Corpo", {"Head","HumanoidRootPart"}, function(v) Config.AimPart=v; Save() end, Config.AimPart)
@@ -183,7 +170,7 @@ MainToggle:AddDropdown(" F Atalho", {"Pressionar","Alternar"}, function(v) Confi
 MainToggle:AddSlider("📏 Raio do FOV", 50, 500, Config.FOV, function(v) Config.FOV=v; Save() end)
 MainToggle:AddSlider("🌀 Suavização", 1, 10, math.floor(Config.Smoothing*10), function(v) Config.Smoothing=math.clamp(v/10,0.1,1.0); Save() end)
 
-print("✅ Aimbot V3.0 (WallCheck) carregado!")
+print("✅ Aimbot V3.1 (Drawing Fix) carregado!")
 
 -- CLEANUP
 return function()
@@ -191,7 +178,7 @@ return function()
     if updateConnection then updateConnection:Disconnect(); updateConnection=nil end
     if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn=nil end
     if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn=nil end
-    pcall(function() circle:Remove() end)
+    if circle.Remove then pcall(circle.Remove, circle) end
     pcall(function() overlayRight:SetVisible(false) end)
     pcall(function() overlayF:SetVisible(false) end)
 end
