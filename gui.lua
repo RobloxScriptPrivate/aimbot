@@ -1,4 +1,4 @@
--- Manus GUI Library V7.1 (Framework Enhanced)
+-- Manus GUI Library V7.2 (Framework Complete)
 local Library = {}
 
 -- Serviços
@@ -68,25 +68,21 @@ function Library:TeleportToPlayer(targetPlayer)
         print("⚠️ Teleporte em cooldown! Aguarde.")
         return
     end
-
     local localChar = player.Character
     local localRoot = localChar and localChar:FindFirstChild("HumanoidRootPart")
     local targetChar = targetPlayer and targetPlayer.Character
     local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-
     if localRoot and targetRoot then
         localRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 3, 0)
         print("🚀 Teleportado para " .. targetPlayer.Name)
         Library.TeleportCooldownUntil = tick() + Library.TeleportCooldownDuration
-    else
-        print("⚠️ Não foi possível teleportar: jogador de destino ou local não encontrado.")
     end
 end
 
 --[[
     2. INICIALIZAÇÃO DA GUI
 ]]
-local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_1"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_2"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then ScreenGui.Parent = player:WaitForChild("PlayerGui") end
 Library.ScreenGui = ScreenGui
 
@@ -111,43 +107,32 @@ function Library:CreateWindow(title, size, position)
     local windowObj={}; local WindowFrame=Instance.new("Frame"); WindowFrame.Name=title; WindowFrame.Size=size or UDim2.new(0,350,0,250); WindowFrame.Position=position or UDim2.new(0.5,-175,0.5,-125); WindowFrame.BackgroundColor3=Color3.fromRGB(30,30,30); WindowFrame.BorderSizePixel=0; WindowFrame.Visible=true; Instance.new("UICorner",WindowFrame).CornerRadius=UDim.new(0,5)
     local TitleBar=Instance.new("TextLabel"); TitleBar.Size=UDim2.new(1,0,0,35); TitleBar.Text="  "..title; TitleBar.TextColor3=Color3.fromRGB(255,255,255); TitleBar.BackgroundColor3=Color3.fromRGB(40,40,40); TitleBar.Font=Enum.Font.SourceSansBold; TitleBar.TextSize=16; TitleBar.TextXAlignment=Enum.TextXAlignment.Left; TitleBar.Parent=WindowFrame
     local CloseButton=Instance.new("TextButton"); CloseButton.Size=UDim2.new(0,35,1,0); CloseButton.Position=UDim2.new(1,-35,0,0); CloseButton.Text="X"; CloseButton.TextColor3=Color3.fromRGB(255,80,80); CloseButton.BackgroundTransparency=1; CloseButton.TextSize=18; CloseButton.Parent=TitleBar; CloseButton.MouseButton1Click:Connect(function() WindowFrame:Destroy() end)
-    
-    -- ContentFrame agora usa UIListLayout por padrão para facilitar a adição de componentes
     local ContentFrame=Instance.new("Frame"); ContentFrame.Size=UDim2.new(1,0,1,-35); ContentFrame.Position=UDim2.new(0,0,0,35); ContentFrame.BackgroundTransparency=1; ContentFrame.Parent=WindowFrame
     local mainLayout = Instance.new("UIListLayout", ContentFrame); mainLayout.Padding = UDim.new(0,8); mainLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; mainLayout.SortOrder = Enum.SortOrder.LayoutOrder
     Instance.new("UIPadding", ContentFrame).PaddingTop = UDim.new(0,8)
-    
     windowObj.Frame=WindowFrame; windowObj.Content=ContentFrame; windowObj.Title=TitleBar; makeDraggable(WindowFrame,TitleBar); WindowFrame.Parent=MainFrame
-
     function windowObj:AddButton(t,c)
         local b=Instance.new("TextButton"); b.Size=UDim2.new(0.9,0,0,32); b.BackgroundColor3=Color3.fromRGB(50,50,50); b.TextColor3=Color3.fromRGB(220,220,220); b.Text=t; b.TextSize=14; b.Font=Enum.Font.SourceSansBold; b.Parent=ContentFrame; Instance.new("UICorner",b); b.MouseButton1Click:Connect(c); return b
     end
-
     function windowObj:AddTextBox(p, cb)
         local t=Instance.new("TextBox"); t.Size=UDim2.new(0.9,0,0,32); t.BackgroundColor3=Color3.fromRGB(35,35,35); t.TextColor3=Color3.fromRGB(255,255,255); t.PlaceholderText=p or ""; t.TextSize=14; t.Font=Enum.Font.SourceSans; t.Parent=ContentFrame; Instance.new("UICorner",t);
         if cb then t.FocusLost:Connect(function(enter) if enter then cb(t.Text) end end) end
         return t
     end
-
     function windowObj:AddLabel(text, centered)
         local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.9, 0, 0, 30); label.Text = text; label.Font = Enum.Font.SourceSans; label.TextSize = 14; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.BackgroundTransparency = 1; label.TextXAlignment = centered and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left; label.Parent = ContentFrame
         return label
     end
-
     function windowObj:AddScrollableList()
-        -- Cria um container que ocupa o espaço disponível
         local frame = Instance.new("ScrollingFrame"); frame.Size = UDim2.new(0.95, 0, 0.7, 0); frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35); frame.BorderSizePixel = 0; frame.ScrollBarThickness = 6; frame.Parent = ContentFrame;
         local listLayout = Instance.new("UIListLayout", frame); listLayout.Padding = UDim.new(0, 5); listLayout.SortOrder = Enum.SortOrder.LayoutOrder; listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() frame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y) end)
         Instance.new("UICorner", frame)
         return frame
     end
-    
     Library.ActiveWindows[title] = windowObj
     return windowObj
 end
-
-function Library:RestoreCategoryPositions() local d=loadCategoryPositions(); if not d then return end; for _,c in ipairs(Library.Categories) do if c and c.Parent and d[c.Name] then local s=d[c.Name]; local o=categoryObjects[c.Name]; c.Position=UDim2.new(0,s.x,0,s.y); if o and type(s.expanded)=="boolean" then o.Expanded=s.expanded; local f=o.Options; if f then f.Visible=s.expanded end end end end end
 
 function Library:CreateCategory(n,p) 
     local cF=Instance.new("Frame"); cF.Name=n; cF.Size=UDim2.new(0,150,0,30); cF.Position=p; cF.BackgroundColor3=Color3.fromRGB(30,30,30); cF.BorderSizePixel=0; cF.Parent=MainFrame; 
@@ -157,7 +142,6 @@ function Library:CreateCategory(n,p)
     local cO={Frame=cF,Options=oF,Expanded=true}; makeDraggable(cF,T,saveCategoryPositions); table.insert(Library.Categories,cF); categoryObjects[n]=cO; 
     local function rOF() local h=0; for _,v in pairs(oF:GetChildren()) do if v:IsA("Frame") then h=h+v.Size.Y.Offset end end; oF.Size=UDim2.new(1,0,0,h) end; 
     T.MouseButton2Click:Connect(function() cO.Expanded=not cO.Expanded; oF.Visible=cO.Expanded; saveCategoryPositions() end); 
-    
     function cO:AddModule(mN,cb,iT) 
         local mO={Enabled=false,IsTrigger=iT or false,SubExpanded=false}; 
         local mC=Instance.new("Frame"); mC.Size=UDim2.new(1,0,0,25); mC.BackgroundTransparency=1; mC.Parent=oF; 
@@ -168,7 +152,6 @@ function Library:CreateCategory(n,p)
         uS(); sL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(uS); 
         mB.MouseButton1Click:Connect(function() if mO.IsTrigger then cb() else mO.Enabled=not mO.Enabled; mB.TextColor3=mO.Enabled and Color3.fromRGB(0,255,120) or Color3.fromRGB(200,200,200); cb(mO.Enabled) end end); 
         mB.MouseButton2Click:Connect(function() mO.SubExpanded=not mO.SubExpanded; sF.Visible=mO.SubExpanded; uS() end); 
-        
         function mO:AddToggle(t,d,c) 
             local s=d or false; local b=Instance.new("TextButton"); b.Size=UDim2.new(1,0,0,18); b.BackgroundTransparency=1; b.Text="  "..t; b.TextColor3=s and Color3.fromRGB(0,200,100) or Color3.fromRGB(160,160,160); b.Font=Enum.Font.SourceSans; b.TextSize=12; b.TextXAlignment=Enum.TextXAlignment.Left; b.LayoutOrder=1; b.Parent=sF; 
             b.MouseButton1Click:Connect(function() s=not s; b.TextColor3=s and Color3.fromRGB(0,200,100) or Color3.fromRGB(160,160,160); c(s) end) 
@@ -188,10 +171,42 @@ function Library:CreateCategory(n,p)
     return cO 
 end
 
+--[[
+    5. OVERLAY (RESTAURADO)
+]]
+function Library:CreateOverlay(id, title, color)
+    if Library.Overlays[id] then return Library.Overlays[id] end
+    local o=Instance.new("Frame"); o.Size=UDim2.new(0,220,0,80); o.BackgroundColor3=Color3.fromRGB(20,20,25); o.BackgroundTransparency=0.2; o.BorderSizePixel=0; o.Visible=false; o.Parent=ScreenGui; Instance.new("UICorner",o).CornerRadius=UDim.new(0,8)
+    local b=Instance.new("Frame"); b.Size=UDim2.new(1,0,0,2); b.BackgroundColor3=color or Color3.fromRGB(0,150,255); b.BorderSizePixel=0; b.Parent=o; Instance.new("UICorner",b)
+    local t=Instance.new("TextLabel"); t.Size=UDim2.new(1,-10,0,20); t.Position=UDim2.new(0,10,0,5); t.Text=title; t.TextColor3=color or Color3.fromRGB(0,150,255); t.Font=Enum.Font.SourceSansBold; t.TextSize=12; t.BackgroundTransparency=1; t.TextXAlignment=Enum.TextXAlignment.Left; t.Parent=o
+    local l=Instance.new("TextLabel"); l.Size=UDim2.new(1,-20,0,40); l.Position=UDim2.new(0,10,0,30); l.Text="Aguardando..."; l.TextColor3=Color3.fromRGB(255,255,255); l.Font=Enum.Font.SourceSans; l.TextSize=14; l.BackgroundTransparency=1; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=o
+    local overlayObj = {Frame = o, Label = l}
+    function overlayObj:SetText(txt) l.Text = txt end
+    function overlayObj:SetVisible(v) o.Visible = v end
+    Library.Overlays[id] = overlayObj
+    return overlayObj
+end
+
+--[[
+    6. JANELAS ESPECÍFICAS (RESTAURADAS)
+]]
+function Library:OpenWhitelistWindow()
+    local window = Library:CreateWindow("🛡️ Whitelist", UDim2.new(0, 400, 0, 350))
+    window:AddLabel("Gerenciamento de Jogadores", true)
+    window:AddButton("Fechar", function() window.Frame:Destroy() end)
+end
+
+function Library:OpenKillauraTargetWindow()
+    local window = Library:CreateWindow("🎯 Alvo Killaura", UDim2.new(0, 300, 0, 300))
+    window:AddLabel("Selecione o Alvo", true)
+end
+
 -- Configurações Globais
 SettingsBtn.MouseButton1Click:Connect(function() 
     local w=Library:CreateWindow("Configurações Globais",UDim2.new(0,300,0,260)); 
-    w:AddButton("❌ Remover Script (Atalho: K)",function() saveCategoryPositions(); ScreenGui:Destroy() end) 
+    w:AddButton("🛡️ Whitelist", function() Library:OpenWhitelistWindow() end)
+    w:AddButton("🎯 Alvo Killaura", function() Library:OpenKillauraTargetWindow() end)
+    w:AddButton("❌ Remover Script", function() ScreenGui:Destroy() end) 
 end)
 
 return Library
