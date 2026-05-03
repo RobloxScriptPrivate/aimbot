@@ -87,21 +87,8 @@ cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
 
--- Etapa 3.5: Adicionar o Módulo Killaura diretamente
-print("\n--- Etapa 3.5: Adicionando Killaura ---")
-local killauraModule = Misc:AddModule("🎯 Killaura", function(enabled)
-    Library.Killaura.Enabled = enabled
-end)
-
-if killauraModule then
-    killauraModule:AddSlider("Distância: ", 5, 50, Library.Killaura.Distance, function(val)
-        Library.Killaura.Distance = val
-    end)
-    print("✅ Módulo Killaura adicionado à categoria Misc.")
-end
-
--- Etapa 3.6: Adicionar o Módulo Arsenal DIRETAMENTE
-print("\n--- Etapa 3.6: Adicionando Arsenal ---")
+-- Etapa 3.5: Adicionar o Módulo Arsenal DIRETAMENTE
+print("\n--- Etapa 3.5: Adicionando Arsenal ---")
 do
     local arsenalWindow = nil
     local weaponListFrame = nil
@@ -109,8 +96,13 @@ do
     local function scanAndPopulateWeapons()
         if not (arsenalWindow and weaponListFrame) then return end
         weaponListFrame:ClearAllChildren()
+        print("[Arsenal] Escaneando Tycoons em busca de armas...")
         local tycoonsFolder = workspace:FindFirstChild("Tycoons")
-        if not tycoonsFolder then return end
+        if not tycoonsFolder then
+            warn("[Arsenal] Pasta 'Tycoons' não encontrada no workspace.")
+            return
+        end
+        local weaponsFound = 0
         for _, tycoon in ipairs(tycoonsFolder:GetChildren()) do
             local purchased = tycoon:FindFirstChild("PurchasedObjects")
             if purchased then
@@ -119,6 +111,7 @@ do
                         local tool = child:FindFirstChildOfClass("Tool")
                         local touchPart = child:FindFirstChild("Touch")
                         if tool and touchPart and touchPart:FindFirstChildOfClass("TouchTransmitter") then
+                            weaponsFound = weaponsFound + 1
                             local weaponButton = Instance.new("TextButton")
                             weaponButton.Name = tool.Name
                             weaponButton.Text = tool.Name
@@ -129,6 +122,7 @@ do
                             weaponButton.Size = UDim2.new(1, -10, 0, 25)
                             weaponButton.Parent = weaponListFrame
                             weaponButton.MouseButton1Click:Connect(function()
+                                print("[Arsenal] Coletando arma: " .. tool.Name)
                                 local rootPart = game:GetService("Players").LocalPlayer.Character and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                                 if rootPart then
                                     pcall(firetouchinterest, touchPart, rootPart, 0)
@@ -142,6 +136,7 @@ do
                 end
             end
         end
+        print("[Arsenal] Escaneamento concluído. " .. weaponsFound .. " armas encontradas.")
     end
 
     local function openArsenalWindow()
@@ -158,6 +153,7 @@ do
         arsenalWindow.BorderSizePixel = 1
         arsenalWindow.BorderColor3 = Color3.fromRGB(80, 80, 80)
         arsenalWindow.Draggable = true
+        arsenalWindow.Active = true -- CORREÇÃO: Habilita a interatividade para arrastar
         arsenalWindow.Parent = Library.ScreenGui
         local titleBar = Instance.new("Frame")
         titleBar.Name = "TitleBar"
@@ -208,15 +204,31 @@ do
         listLayout.SortOrder = Enum.SortOrder.Name
         listLayout.Parent = scrollingFrame
         weaponListFrame = scrollingFrame
+        
+        task.wait(0.1) -- CORREÇÃO: Espera a janela renderizar antes de escanear
         scanAndPopulateWeapons()
     end
 
-    -- MUDANÇA CRÍTICA AQUI: Removido o 'true' para testar a hipótese de bug
     Misc:AddModule("🔫 Arsenal", function(enabled) 
         openArsenalWindow() 
     end)
-    print("✅ Módulo de Arsenal integrado como INTERRUPTOR.")
+    print("✅ Módulo de Arsenal integrado e corrigido.")
 end
+
+
+-- Etapa 3.6: Adicionar o Módulo Killaura diretamente
+print("\n--- Etapa 3.6: Adicionando Killaura ---")
+local killauraModule = Misc:AddModule("🎯 Killaura", function(enabled)
+    Library.Killaura.Enabled = enabled
+end)
+
+if killauraModule then
+    killauraModule:AddSlider("Distância: ", 5, 50, Library.Killaura.Distance, function(val)
+        Library.Killaura.Distance = val
+    end)
+    print("✅ Módulo Killaura adicionado à categoria Misc.")
+end
+
 
 -- Etapa 4: Lógica do Killaura (integrada)
 print("\n--- Etapa 4: Iniciando loop do Killaura ---")
