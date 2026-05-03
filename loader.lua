@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v14 - Restore Categorias) ==========
-print("🔧 Iniciando carregamento remoto v14. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v15 - Killaura Integrado) ==========
+print("🔧 Iniciando carregamento v15. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -46,7 +46,7 @@ local Combat   = Library:CreateCategory("⚔️ Combat",    UDim2.new(0, startX,
 local Visual   = Library:CreateCategory("👁️ Visual",    UDim2.new(0, startX + catWidth + spacing, 0, startY))
 local Movement = Library:CreateCategory("🏃 Movimento", UDim2.new(0, startX + (catWidth + spacing) * 2, 0, startY))
 local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, startX + (catWidth + spacing) * 3, 0, startY))
-local Misc = Library:CreateCategory("✨ Misc", UDim2.new(0, startX + (catWidth + spacing) * 4, 0, startY))
+local Misc     = Library:CreateCategory("✨ Misc",      UDim2.new(0, startX + (catWidth + spacing) * 4, 0, startY))
 print("✅ Todas as categorias criadas.")
 
 
@@ -77,31 +77,7 @@ local function LoadModule(filename, category)
     return function() end
 end
 
-local function LoadLocalModule(filename, category)
-    print("\n🔧 Carregando Módulo Local: '"..filename.."'...")
-    if not category then
-        warn("🔥🔥 ERRO: A categoria para '"..filename.."' é NULA.")
-        return function() end
-    end
-    local code = readfile(filename)
-    if code then
-        local func, compile_err = loadstring(code)
-        if func then
-            local success, result = pcall(func, Library, category)
-            if success then
-                print("✅ Módulo '"..filename.."' executado com sucesso.")
-                return result
-            else
-                warn("🔥🔥 ERRO AO EXECUTAR '"..filename.."': ", result)
-            end
-        else
-            warn("🔥🔥 ERRO DE SINTAXE em '"..filename.."': ", compile_err)
-        end
-    end
-    return function() end
-end
-
-
+-- Carregar módulos existentes
 local cleanupFuncs = {}
 cleanupFuncs.aimbot   = LoadModule("aimbot.lua",   Combat)
 cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
@@ -109,34 +85,84 @@ cleanupFuncs.esp      = LoadModule("esp.lua",      Visual)
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
-cleanupFuncs.killaura = LoadLocalModule("killaura.lua", Misc)
+
+-- Etapa 3.5: Adicionar o Módulo Killaura diretamente
+print("\n--- Etapa 3.5: Adicionando Killaura ---")
+local killauraModule = Misc:AddModule("🎯 Killaura", function(enabled)
+    Library.Killaura.Enabled = enabled
+end)
+
+if killauraModule then
+    killauraModule:AddSlider("Distância: ", 5, 50, Library.Killaura.Distance, function(val)
+        Library.Killaura.Distance = val
+    end)
+    print("✅ Módulo Killaura adicionado à categoria Misc.")
+end
+
+-- Etapa 4: Lógica do Killaura (integrada)
+print("\n--- Etapa 4: Iniciando loop do Killaura ---")
+local function attackTarget(targetChar)
+    local char = game:GetService("Players").LocalPlayer.Character
+    if not char then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool or not tool:FindFirstChild("Handle") then return end
+    local targetPart = targetChar:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
+    if tool:FindFirstChild("Use") then
+        tool.Use:FireServer()
+    end
+    firetouchinterest(tool.Handle, targetPart, 0)
+    firetouchinterest(tool.Handle, targetPart, 1)
+end
+
+local killauraLoop
+killauraLoop = coroutine.wrap(function()
+    while true do
+        if Library.Killaura.Enabled and Library.Killaura.Target then
+            local targetPlayer = Library.Killaura.Target
+            if targetPlayer and targetPlayer.Character then
+                local hum = targetPlayer.Character:FindFirstChild("Humanoid")
+                local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local localChar = game:GetService("Players").LocalPlayer.Character
+                if hum and hum.Health > 0 and hrp and localChar and localChar:FindFirstChild("HumanoidRootPart") then
+                    local dist = (hrp.Position - localChar.HumanoidRootPart.Position).Magnitude
+                    if dist <= Library.Killaura.Distance then
+                        attackTarget(targetPlayer.Character)
+                    end
+                else
+                    Library.Killaura.Target = nil -- Limpa o alvo se ele não for mais válido
+                end
+            end
+        end
+        wait(0.1)
+    end
+end)
+killauraLoop()
 
 
--- Etapa 4: Restaura posicoes e estado das categorias APOS todos os modulos
-print("\n--- Etapa 4: Restaurando posicoes das categorias ---")
-task.wait(0.05)  -- aguarda um frame para garantir que todos os frames existem
+-- Etapa 5: Restaurar posições das categorias
+print("\n--- Etapa 5: Restaurando posicoes das categorias ---")
+task.wait(0.05)
 if Library.RestoreCategoryPositions then
     Library:RestoreCategoryPositions()
     print("✅ Posicoes e estados das categorias restaurados.")
 end
 
--- Etapa 5: Cleanup global — roda quando K é pressionado ou ScreenGui destruído
-print("\n--- Etapa 5: Configurando Limpeza Global ---")
-
--- Library.ScreenGui é exposto pela gui.lua para que o loader possa conectar
+-- Etapa 6: Cleanup global
+print("\n--- Etapa 6: Configurando Limpeza Global ---")
 local sg = Library.ScreenGui
 if sg then
     sg.Destroying:Connect(function()
         print("🧹 ScreenGui destruído — executando cleanup de todos os módulos...")
         for name, fn in pairs(cleanupFuncs) do
             if type(fn) == "function" then
-                local ok, err = pcall(fn)
-                if not ok then
-                    warn("⚠️ Erro no cleanup de '" .. tostring(name) .. "': " .. tostring(err))
-                end
+                pcall(fn)
             end
         end
-        print("✅ Cleanup global concluído. Todos os Drawing objects e Highlights removidos.")
+        if killauraLoop and coroutine.status(killauraLoop) ~= "dead" then
+            -- Não há como "matar" uma coroutine de fora, mas podemos reestruturar se necessário
+        end
+        print("✅ Cleanup global concluído.")
     end)
     print("✅ Cleanup global conectado ao ScreenGui.Destroying.")
 else

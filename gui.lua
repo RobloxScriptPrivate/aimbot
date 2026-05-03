@@ -18,6 +18,11 @@ Library.Categories = {}
 Library.ActiveWindows = {}
 Library.Overlays = {}
 Library.Whitelist = {}
+Library.Killaura = {
+    Target = nil,
+    Enabled = false,
+    Distance = 10
+}
 
 -- COOLDOWN DE TELEPORTE
 Library.TeleportCooldownUntil = 0
@@ -157,6 +162,46 @@ function Library:OpenWhitelistWindow()
     window.Frame.Destroying:Connect(function() if updateConnection then updateConnection:Disconnect() end end)
 end
 
+function Library:OpenKillauraTargetWindow()
+    local window = Library:CreateWindow("🎯 Alvo Killaura", UDim2.new(0, 300, 0, 300))
+    local content = window.Content
+    local searchQuery = ""
+
+    local WinSearch = Instance.new("TextBox"); WinSearch.Size=UDim2.new(0.9,0,0,28); WinSearch.Position=UDim2.new(0.5,-WinSearch.Size.X.Offset/2,0,0); WinSearch.BackgroundColor3=Color3.fromRGB(35,35,35); WinSearch.PlaceholderText="Pesquisar jogador..."; WinSearch.TextColor3=Color3.fromRGB(255,255,255); WinSearch.Font=Enum.Font.SourceSans; WinSearch.TextSize=14; WinSearch.Parent=content; Instance.new("UICorner",WinSearch)
+    local Scroll = Instance.new("ScrollingFrame"); Scroll.Size=UDim2.new(0.95,0,1,-80); Scroll.Position=UDim2.new(0.5,-Scroll.Size.X.Offset/2,0,40); Scroll.BackgroundTransparency=1; Scroll.BorderSizePixel=0; Scroll.ScrollBarThickness=3; Scroll.Parent=content
+    local listLayout = Instance.new("UIListLayout", Scroll); listLayout.Padding=UDim.new(0,5); listLayout.HorizontalAlignment=Enum.HorizontalAlignment.Center
+    local clearBtn = window:AddButton("Limpar Alvo", function() Library.Killaura.Target = nil; print("🎯 Alvo Killaura limpo.") end)
+    clearBtn.Position = UDim2.new(0.05, 0, 1, -40)
+    clearBtn.Size = UDim2.new(0.9, 0, 0, 30)
+
+    local function refresh()
+        for _, v in pairs(Scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player and (p.Team ~= player.Team or p.Team == nil) then
+                local match = string.find(string.lower(p.DisplayName), searchQuery) or string.find(string.lower(p.Name), searchQuery)
+                if match then
+                    local pF=Instance.new("Frame"); pF.Size=UDim2.new(0.95,0,0,32); pF.BackgroundTransparency=1; pF.Parent=Scroll
+                    local nL=Instance.new("TextLabel"); nL.Size=UDim2.new(1,-60,1,0); nL.Text="  "..p.DisplayName; nL.TextColor3=Color3.fromRGB(220,220,220); nL.Font=Enum.Font.SourceSans; nL.TextSize=14; nL.TextXAlignment=Enum.TextXAlignment.Left; nL.BackgroundTransparency=1; nL.Parent=pF
+                    local selBtn=Instance.new("TextButton"); selBtn.Size=UDim2.new(0,50,0.8,0); selBtn.Position=UDim2.new(1,-55,0.1,0)
+                    selBtn.BackgroundColor3 = (Library.Killaura.Target == p) and Color3.fromRGB(0,180,80) or Color3.fromRGB(50,50,50)
+                    selBtn.Text = (Library.Killaura.Target == p) and "ALVO" or "Sel."
+                    selBtn.TextColor3=Color3.fromRGB(255,255,255); selBtn.Font=Enum.Font.SourceSansBold; selBtn.TextSize=12; selBtn.Parent=pF; Instance.new("UICorner",selBtn).CornerRadius=UDim.new(0,4)
+                    selBtn.MouseButton1Click:Connect(function()
+                        Library.Killaura.Target = p
+                        print("🎯 Novo alvo Killaura: " .. p.Name)
+                        refresh() -- Refresh to update button states
+                    end)
+                end
+            end
+        end
+        Scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 5)
+    end
+    WinSearch.FocusLost:Connect(function(enter) if enter then searchQuery=string.lower(WinSearch.Text); refresh() end end)
+    Players.PlayerAdded:Connect(refresh)
+    Players.PlayerRemoving:Connect(refresh)
+    refresh()
+end
+
 
 --[[
     5. API DE JANELAS E CATEGORIAS
@@ -178,7 +223,24 @@ function Library:CreateCategory(n,p) local cF=Instance.new("Frame"); cF.Name=n; 
 --[[
     6. CONFIGURAÇÕES
 ]]
-SettingsBtn.MouseButton1Click:Connect(function() local w=Library:CreateWindow("Configurações Globais",UDim2.new(0,300,0,220)); w:AddButton("🛡️ Gerenciar Jogadores",function() Library:OpenWhitelistWindow() end); local kb=w:AddButton("⌨️ Atalho do Menu: "..Library.OpenKey.Name,function()end); kb.MouseButton1Click:Connect(function() kb.Text="... Pressione uma tecla ..."; local c; c=UserInputService.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Keyboard then Library.OpenKey=i.KeyCode; kb.Text="⌨️ Atalho do Menu: "..i.KeyCode.Name; c:Disconnect() end end) end); w:AddButton("❌ Remover Script (Atalho: K)",function() saveCategoryPositions(); ScreenGui:Destroy() end) end)
+SettingsBtn.MouseButton1Click:Connect(function() 
+    local w=Library:CreateWindow("Configurações Globais",UDim2.new(0,300,0,260)); 
+    w:AddButton("🛡️ Gerenciar Jogadores",function() Library:OpenWhitelistWindow() end)
+    w:AddButton("🎯 Alvo Killaura", function() Library:OpenKillauraTargetWindow() end)
+    local kb=w:AddButton("⌨️ Atalho do Menu: "..Library.OpenKey.Name,function()end); 
+    kb.MouseButton1Click:Connect(function() 
+        kb.Text="... Pressione uma tecla ..."; 
+        local c; 
+        c=UserInputService.InputBegan:Connect(function(i) 
+            if i.UserInputType==Enum.UserInputType.Keyboard then 
+                Library.OpenKey=i.KeyCode; 
+                kb.Text="⌨️ Atalho do Menu: "..i.KeyCode.Name; 
+                c:Disconnect() 
+            end 
+        end) 
+    end); 
+    w:AddButton("❌ Remover Script (Atalho: K)",function() saveCategoryPositions(); ScreenGui:Destroy() end) 
+end)
 UserInputService.InputBegan:Connect(function(i,p) if not p and i.KeyCode==Library.RemoveKey then saveCategoryPositions(); ScreenGui:Destroy() end end)
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function() local q=string.lower(SearchBox.Text); for _,cat in ipairs(Library.Categories) do local h=false; for _,m in ipairs(cat:FindFirstChild("Options"):GetChildren()) do if m:IsA("Frame") then local b=m:FindFirstChildOfClass("TextButton"); if b and string.find(string.lower(b.Text),q) then m.Visible=true; h=true else m.Visible=false end end end; cat.Visible=(q=="" or h) end end)
 
