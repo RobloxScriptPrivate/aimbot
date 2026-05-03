@@ -85,6 +85,7 @@ cleanupFuncs.esp      = LoadModule("esp.lua",      Visual)
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
+cleanupFuncs.armas    = LoadModule("armas.lua",    Misc)
 
 -- Etapa 3.5: Adicionar o Módulo Killaura diretamente
 print("\n--- Etapa 3.5: Adicionando Killaura ---")
