@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v19 - Arsenal Overhaul) ==========
-print("🔧 Iniciando carregamento v19. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v20 - Arsenal Scope Fix) ==========
+print("🔧 Iniciando carregamento v20. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -127,7 +127,7 @@ do
 end
 
 --[[
-    Módulo Arsenal (v2.0 - UI de Cards com Botão TP)
+    Módulo Arsenal (v2.1 - Busca Corrigida e Focada)
 ]]
 do
     local arsenalWindow, weaponListFrame
@@ -149,53 +149,17 @@ do
                     if tool and tool:IsA("Tool") then
                         foundCount = foundCount + 1
                         
-                        -- Card UI
-                        local card = Instance.new("Frame")
-                        card.Size = UDim2.new(0.95, 0, 0, 65)
-                        card.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                        card.BorderSizePixel = 0
-                        card.Parent = weaponListFrame
-                        Instance.new("UICorner", card)
-
-                        local title = Instance.new("TextLabel")
-                        title.Size = UDim2.new(1, -10, 0, 25)
-                        title.Position = UDim2.new(0, 5, 0, 5)
-                        title.Text = tool.Name
-                        title.Font = Enum.Font.SourceSansBold
-                        title.TextSize = 15
-                        title.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        title.TextXAlignment = Enum.TextXAlignment.Left
-                        title.BackgroundTransparency = 1
-                        title.Parent = card
-
-                        local pegarBtn = Instance.new("TextButton")
-                        pegarBtn.Size = UDim2.new(0.4, 0, 0, 28)
-                        pegarBtn.Position = UDim2.new(0.05, 0, 0, 32)
-                        pegarBtn.Text = "✔️ Pegar"
-                        pegarBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
-                        pegarBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        pegarBtn.Font = Enum.Font.SourceSansBold
-                        pegarBtn.Parent = card
-                        Instance.new("UICorner", pegarBtn)
-
-                        local tpBtn = Instance.new("TextButton")
-                        tpBtn.Size = UDim2.new(0.4, 0, 0, 28)
-                        tpBtn.Position = UDim2.new(0.55, 0, 0, 32)
-                        tpBtn.Text = "🌌 TP"
-                        tpBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 160)
-                        tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-                        tpBtn.Font = Enum.Font.SourceSansBold
-                        tpBtn.Parent = card
-                        Instance.new("UICorner", tpBtn)
+                        local card = Instance.new("Frame"); card.Size = UDim2.new(0.95, 0, 0, 65); card.BackgroundColor3 = Color3.fromRGB(40, 40, 40); card.BorderSizePixel = 0; card.Parent = weaponListFrame; Instance.new("UICorner", card)
+                        local title = Instance.new("TextLabel"); title.Size = UDim2.new(1, -10, 0, 25); title.Position = UDim2.new(0, 5, 0, 5); title.Text = tool.Name; title.Font = Enum.Font.SourceSansBold; title.TextSize = 15; title.TextColor3 = Color3.fromRGB(255, 255, 255); title.TextXAlignment = Enum.TextXAlignment.Left; title.BackgroundTransparency = 1; title.Parent = card
+                        local pegarBtn = Instance.new("TextButton"); pegarBtn.Size = UDim2.new(0.4, 0, 0, 28); pegarBtn.Position = UDim2.new(0.05, 0, 0, 32); pegarBtn.Text = "✔️ Pegar"; pegarBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80); pegarBtn.TextColor3 = Color3.fromRGB(255, 255, 255); pegarBtn.Font = Enum.Font.SourceSansBold; pegarBtn.Parent = card; Instance.new("UICorner", pegarBtn)
+                        local tpBtn = Instance.new("TextButton"); tpBtn.Size = UDim2.new(0.4, 0, 0, 28); tpBtn.Position = UDim2.new(0.55, 0, 0, 32); tpBtn.Text = "🌌 TP"; tpBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 160); tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255); tpBtn.Font = Enum.Font.SourceSansBold; tpBtn.Parent = card; Instance.new("UICorner", tpBtn)
                         
-                        -- --- Lógica dos Botões ---
                         pegarBtn.MouseButton1Click:Connect(function()
                             local root = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                             if not root then return end
                             local touchPart = obj:IsA("BasePart") and obj or obj:FindFirstChild("Handle") or tool:FindFirstChild("Handle")
                             if touchPart then
-                                firetouchinterest(root, touchPart, 0)
-                                firetouchinterest(root, touchPart, 1)
+                                firetouchinterest(root, touchPart, 0); firetouchinterest(root, touchPart, 1)
                                 print("[Arsenal] Tentativa de 'Pegar' para: " .. tool.Name)
                             end
                         end)
@@ -211,13 +175,23 @@ do
                         end)
                     end
                 end
-                -- Recursão
                 if #obj:GetChildren() > 0 then lookForGivers(obj) end
             end
         end
-        lookForGivers(workspace)
+        
+        -- CORREÇÃO: Procurar apenas dentro da pasta 'Tycoons'
+        local tycoonsFolder = workspace:FindFirstChild("Tycoons")
+        if tycoonsFolder then
+            print("[Arsenal] Pasta 'Tycoons' encontrada. Escaneando...")
+            lookForGivers(tycoonsFolder)
+        else
+            warn("[Arsenal] Pasta 'Tycoons' não encontrada. A busca pode falhar.")
+            -- Como fallback, podemos procurar em todo o workspace, mas isso pode causar o bug antigo
+            -- lookForGivers(workspace) 
+        end
+
         if foundCount == 0 then
-            local lbl = Instance.new("TextLabel"); lbl.Text = "Nenhuma arma encontrada."; lbl.Size = UDim2.new(1, 0, 0, 30); lbl.BackgroundTransparency = 1; lbl.TextColor3 = Color3.fromRGB(200, 200, 200); lbl.Parent = weaponListFrame
+            local lbl = Instance.new("TextLabel"); lbl.Text = "Nenhum 'Tool Giver' encontrado nos Tycoons."; lbl.Size = UDim2.new(1, 0, 0, 30); lbl.BackgroundTransparency = 1; lbl.TextColor3 = Color3.fromRGB(200, 200, 200); lbl.Parent = weaponListFrame
         end
     end
 
@@ -231,4 +205,4 @@ do
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
 end
 
-print("✅ Carregamento Finalizado (v19).")
+print("✅ Carregamento Finalizado (v20).")
