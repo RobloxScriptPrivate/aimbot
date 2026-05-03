@@ -81,31 +81,40 @@ end
 local cleanupFuncs = {}
 cleanupFuncs.aimbot   = LoadModule("aimbot.lua",   Combat)
 cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
-cleanupFuncs.esp      = LoadModule("esp.lua",      Visual) -- REATIVADO
+cleanupFuncs.esp      = LoadModule("esp.lua",      Visual)
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
 
--- Etapa 3.5: Adicionar o Módulo Arsenal (Versão Final Corrigida)
-print("\n--- Etapa 3.5: Adicionando Arsenal (Final) ---")
+-- Etapa 3.5: Adicionar o Módulo Arsenal (Com a lógica do script FelixXLS)
+print("\n--- Etapa 3.5: Adicionando Arsenal (Lógica Corrigida) ---")
 do
     local arsenalWindow
+
+    -- Lista de nomes exatos (do script que você forneceu)
+    local toolGiverNames = {
+        "ToolGiver1P1", "ToolGiver1P2", "ToolGiver2P1", "ToolGiver3P1", "ToolGiver3P2",
+        "ToolGiver4P1", "ToolGiver4P2", "ToolGiver5", "ToolGiver5P1", "ToolGiver5P2",
+        "ToolGiver6P1", "ToolGiver6P2", "ToolGiver7P1", "ToolGiver7P2", "ToolGiver8P1",
+        "ToolGiver8P2", "ToolGiver9P1", "ToolGiver9P2", "ToolGiver10P1", "ToolGiver10P2",
+        "ToolGiver11P1", "ToolGiver11P2", "ToolGiver12P1", "ToolGiver12P2", "ToolGiver13P1",
+        "ToolGiver13P2", "ToolGiver14P1", "ToolGiver14P2", "ToolGiver100"
+    }
 
     local function scanAndPopulateWeapons()
         if not arsenalWindow or not arsenalWindow.Frame then return end
         
-        -- Limpa apenas os botões de armas, mantendo o botão de atualizar
         for _, child in ipairs(arsenalWindow.Container:GetChildren()) do
             if child:IsA("TextButton") and child.Name ~= "Atualizar Lista" then
                 child:Destroy()
             end
         end
 
-        print("[Arsenal] Escaneando Tycoons em busca de armas...")
+        print("[Arsenal] Escaneando Tycoons com lista de nomes exatos...")
         local tycoonsFolder = workspace:FindFirstChild("Tycoons")
         if not tycoonsFolder then
-            warn("[Arsenal] Pasta 'Tycoons' não encontrada no workspace.")
+            warn("[Arsenal] Pasta 'Tycoons' não encontrada.")
             return
         end
 
@@ -113,24 +122,30 @@ do
         for _, tycoon in ipairs(tycoonsFolder:GetChildren()) do
             local purchased = tycoon:FindFirstChild("PurchasedObjects")
             if purchased then
-                for _, child in ipairs(purchased:GetChildren()) do
-                    if string.find(string.lower(child.Name), "toolgiver") then
-                        local tool = child:FindFirstChildOfClass("Tool")
-                        local touchPart = child:FindFirstChild("Touch")
-                        if tool and touchPart and touchPart:FindFirstChildOfClass("TouchTransmitter") then
+                -- Itera sobre a lista de nomes exatos
+                for _, toolGiverName in ipairs(toolGiverNames) do
+                    local toolGiver = purchased:FindFirstChild(toolGiverName)
+                    if toolGiver then
+                        local tool = toolGiver:FindFirstChildOfClass("Tool")
+                        local touchPart = toolGiver:FindFirstChild("Touch")
+                        
+                        if tool and touchPart and touchPart:IsA("BasePart") then
                             weaponsFound = weaponsFound + 1
                             
-                            -- ADICIONA O BOTÃO USANDO A FUNÇÃO DA BIBLIOTECA
                             local weaponButton = arsenalWindow:AddButton(tool.Name, function()
-                                print("[Arsenal] Coletando arma: " .. tool.Name)
-                                local rootPart = game:GetService("Players").LocalPlayer.Character and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                                if rootPart then
-                                    pcall(firetouchinterest, touchPart, rootPart, 0)
-                                    pcall(firetouchinterest, touchPart, rootPart, 1)
-                                    -- A biblioteca pode não suportar mudar o texto do botão, mas a coleta funcionará
+                                print("[Arsenal] Coletando arma: " .. tool.Name .. " com método de teleporte.")
+                                local RootPart = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                                if RootPart then
+                                    -- Método de coleta do script FelixXLS
+                                    local originalCFrame = touchPart.CFrame
+                                    touchPart.Anchored = false
+                                    touchPart.CFrame = RootPart.CFrame
+                                    task.wait(0.1)
+                                    -- Opcional: mover de volta para não deixar o mapa bagunçado
+                                    -- touchPart.CFrame = originalCFrame
                                 end
                             end)
-                            weaponButton.Name = tool.Name -- Nomeia o botão para a função de limpeza
+                            weaponButton.Name = tool.Name
                         end
                     end
                 end
@@ -147,7 +162,6 @@ do
                 arsenalWindow.Title.TextSize = 16
             end
 
-            -- O botão de atualizar é nomeado para que não seja apagado
             local refreshBtn = arsenalWindow:AddButton("Atualizar Lista", scanAndPopulateWeapons)
             refreshBtn.Name = "Atualizar Lista"
 
@@ -158,7 +172,7 @@ do
     end
 
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
-    print("✅ Módulo de Arsenal finalizado e integrado.")
+    print("✅ Módulo de Arsenal integrado com a lógica correta.")
 end
 
 
@@ -207,7 +221,7 @@ killauraLoop = coroutine.wrap(function()
                         attackTarget(targetPlayer.Character)
                     end
                 else
-                    Library.Killaura.Target = nil -- Limpa o alvo se ele não for mais válido
+                    Library.Killaura.Target = nil
                 end
             end
         end
@@ -237,7 +251,6 @@ if sg then
             end
         end
         if killauraLoop and coroutine.status(killauraLoop) ~= "dead" then
-            -- Não há como "matar" uma coroutine de fora, mas podemos reestruturar se necessário
         end
         print("✅ Cleanup global concluído.")
     end)
