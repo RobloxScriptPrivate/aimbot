@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v21 - True Arsenal Fix) ==========
-print("🔧 Iniciando carregamento v21. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v22 - Logic Overhaul by User) ==========
+print("🔧 Iniciando carregamento v22. Sua lógica foi implementada. Obrigado!")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -29,10 +29,7 @@ local function LoadModule(filename, category)
     if code then
         local func, err = loadstring(code)
         if func then 
-            local success, result = pcall(func, Library, category)
-            if not success then warn("Erro ao executar "..filename..": "..tostring(result)) end
-        else
-            warn("Erro de sintaxe em "..filename..": "..tostring(err))
+            pcall(func, Library, category)
         end
     end
 end
@@ -52,159 +49,87 @@ do
     local KillauraModule = Combat:AddModule("🎯 Killaura", function(state)
         Library.Killaura.Enabled = state
     end, false)
-
-    KillauraModule:AddSlider("Distância", 5, 50, Library.Killaura.Distance, function(val)
-        Library.Killaura.Distance = val
-    end)
-
-    local function attackTarget(targetChar)
-        local char = game.Players.LocalPlayer.Character
-        if not char then return end
-        local tool = char:FindFirstChildOfClass("Tool")
-        if not tool or not tool:FindFirstChild("Handle") then return end
-        local targetPart = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChildWhichIsA("BasePart")
-        if not targetPart then return end
-        pcall(function() 
-            firetouchinterest(tool.Handle, targetPart, 0)
-            firetouchinterest(tool.Handle, targetPart, 1)
-        end)
-    end
-
+    KillauraModule:AddSlider("Distância", 5, 50, Library.Killaura.Distance, function(val) Library.Killaura.Distance = val end)
     game:GetService("RunService").Heartbeat:Connect(function()
         if not Library.Killaura.Enabled or not Library.Killaura.Target then return end
-        
         local target = Library.Killaura.Target
         local localChar = game.Players.LocalPlayer.Character
-
         if target and target.Character and localChar and localChar:FindFirstChild("HumanoidRootPart") then
             local hum = target.Character:FindFirstChildOfClass("Humanoid")
             local root = target.Character:FindFirstChild("HumanoidRootPart")
             if hum and hum.Health > 0 and root then
-                local dist = (root.Position - localChar.HumanoidRootPart.Position).Magnitude
-                if dist <= Library.Killaura.Distance then
-                    attackTarget(target.Character)
+                if (root.Position - localChar.HumanoidRootPart.Position).Magnitude <= Library.Killaura.Distance then
+                    local tool = localChar:FindFirstChildOfClass("Tool")
+                    if tool and tool:FindFirstChild("Handle") then
+                        pcall(function() 
+                            firetouchinterest(tool.Handle, root, 0); firetouchinterest(tool.Handle, root, 1) 
+                        end)
+                    end
                 end
             end
         end
     end)
 end
 
--- Módulo de Scanner de Mapa
-do
-    local scanWindow
-    local function runMapScan()
-        if scanWindow and scanWindow.Frame.Parent then scanWindow.Frame:Destroy() end
-        scanWindow = Library:CreateWindow("Scan do Mapa", UDim2.new(0, 300, 0, 150))
-        scanWindow:AddLabel("Logs detalhados enviados para o F9", true)
-
-        local logLines = {}
-        local function scan(instance, depth)
-            if depth > 10 then return end
-            pcall(function()
-                local name = string.lower(instance.Name)
-                if name:find("tool") or name:find("giver") or instance:IsA("Tool") or instance:IsA("ClickDetector") then
-                    local entry = "[" .. instance.ClassName .. "] " .. instance:GetFullName()
-                    table.insert(logLines, entry)
-                end
-                for _, child in ipairs(instance:GetChildren()) do scan(child, depth + 1) end
-            end)
-        end
-        
-        task.spawn(function()
-            print("--- INICIANDO SCAN DO MAPA ---")
-            scan(workspace, 0)
-            print("--- SCAN FINALIZADO ("..#logLines.." itens) ---")
-            local fullLog = table.concat(logLines, "\n")
-            scanWindow:AddButton("Copiar Logs", function() if setclipboard then setclipboard(fullLog) end end)
-        end)
-    end
-    Misc:AddModule("🔬 Scan do Mapa", runMapScan, true)
-end
-
 --[[
-    Módulo Arsenal (v2.2 - Lógica de Busca Corrigida)
+    Módulo Pegar Todas as Armas (Sua Lógica)
 ]]
 do
-    local arsenalWindow, weaponListFrame
-    local toolGiverNames = { "ToolGiver", "WeaponGiver", "SwordGiver", "GunGiver", "DToolGiver" }
+    local autoGetRunning = false
+    local autoGetThread = nil
 
-    local function createGiverCard(giverObject)
-        local card = Instance.new("Frame"); card.Size = UDim2.new(0.95, 0, 0, 65); card.BackgroundColor3 = Color3.fromRGB(40, 40, 40); card.BorderSizePixel = 0; card.Parent = weaponListFrame; Instance.new("UICorner", card)
-        local title = Instance.new("TextLabel"); title.Size = UDim2.new(1, -10, 0, 25); title.Position = UDim2.new(0, 5, 0, 5); title.Text = giverObject.Name; title.Font = Enum.Font.SourceSansBold; title.TextSize = 15; title.TextColor3 = Color3.fromRGB(255, 255, 255); title.TextXAlignment = Enum.TextXAlignment.Left; title.BackgroundTransparency = 1; title.Parent = card
-        local pegarBtn = Instance.new("TextButton"); pegarBtn.Size = UDim2.new(0.4, 0, 0, 28); pegarBtn.Position = UDim2.new(0.05, 0, 0, 32); pegarBtn.Text = "✔️ Pegar"; pegarBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80); pegarBtn.TextColor3 = Color3.fromRGB(255, 255, 255); pegarBtn.Font = Enum.Font.SourceSansBold; pegarBtn.Parent = card; Instance.new("UICorner", pegarBtn)
-        local tpBtn = Instance.new("TextButton"); tpBtn.Size = UDim2.new(0.4, 0, 0, 28); tpBtn.Position = UDim2.new(0.55, 0, 0, 32); tpBtn.Text = "🌌 TP"; tpBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 160); tpBtn.TextColor3 = Color3.fromRGB(255, 255, 255); tpBtn.Font = Enum.Font.SourceSansBold; tpBtn.Parent = card; Instance.new("UICorner", tpBtn)
-        
-        local function getPart(obj)
-            if obj:IsA("BasePart") then return obj end
-            if obj:IsA("Model") then
-                return obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-            end
-            return nil
-        end
+    local toolGiverNames = {
+        "ToolGiver1P1", "ToolGiver1P2", "ToolGiver2P1", "ToolGiver2P2", "ToolGiver3P1", "ToolGiver3P2",
+        "ToolGiver4P1", "ToolGiver4P2", "ToolGiver5", "ToolGiver5P1", "ToolGiver5P2", "ToolGiver6P1",
+        "ToolGiver6P2", "ToolGiver7P1", "ToolGiver7P2", "ToolGiver8P1", "ToolGiver8P2", "ToolGiver9P1",
+        "ToolGiver9P2", "ToolGiver10P1", "ToolGiver10P2", "ToolGiver11P1", "ToolGiver11P2", "ToolGiver12P1",
+        "ToolGiver12P2", "ToolGiver13P1", "ToolGiver13P2", "ToolGiver14P1", "ToolGiver14P2", "ToolGiver100",
+        "DToolGiver1P1", "DToolGiver1P2"
+    }
 
-        pegarBtn.MouseButton1Click:Connect(function()
-            local root = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-            local touchPart = getPart(giverObject)
-            if touchPart then
-                firetouchinterest(root, touchPart, 0); firetouchinterest(root, touchPart, 1)
-            end
-        end)
-
-        tpBtn.MouseButton1Click:Connect(function()
-            local root = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if not root then return end
-            local targetPart = getPart(giverObject)
-            if targetPart then
-                root.CFrame = targetPart.CFrame * CFrame.new(0, 3, 0)
-            end
-        end)
-    end
-
-    local function scanAndPopulateWeapons()
-        if not weaponListFrame then return end
-        weaponListFrame:ClearAllChildren()
-        local foundCount = 0
-
-        local function lookForGivers(parent)
-            for _, obj in ipairs(parent:GetChildren()) do
-                local isGiver = false
-                for _, name in ipairs(toolGiverNames) do
-                    if obj.Name:find(name) then
-                        isGiver = true
-                        break
-                    end
+    Misc:AddModule("📦 Pegar Todas as Armas", function(state)
+        autoGetRunning = state
+        if state then
+            autoGetThread = task.spawn(function()
+                local TycoonsFolder = workspace:WaitForChild("Tycoons", 30)
+                if not TycoonsFolder then 
+                    warn("[AutoGet] Pasta Tycoons não encontrada.")
+                    return 
                 end
-                
-                if isGiver then
-                    foundCount = foundCount + 1
-                    createGiverCard(obj)
-                else
-                    if #obj:GetChildren() > 0 then
-                        lookForGivers(obj)
+
+                while autoGetRunning do
+                    local character = game.Players.LocalPlayer.Character
+                    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+
+                    if rootPart then
+                        for _, tycoon in ipairs(TycoonsFolder:GetChildren()) do
+                            local purchased = tycoon:FindFirstChild("PurchasedObjects")
+                            if purchased then
+                                for _, toolGiverName in ipairs(toolGiverNames) do
+                                    local toolGiver = purchased:FindFirstChild(toolGiverName)
+                                    if toolGiver then
+                                        local touchPart = toolGiver:FindFirstChild("Touch")
+                                        if touchPart and touchPart:IsA("BasePart") and touchPart:FindFirstChildOfClass("TouchTransmitter") then
+                                            pcall(function() -- Usar pcall para evitar erros
+                                                touchPart.Anchored = false
+                                                touchPart.CFrame = rootPart.CFrame
+                                            end)
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
+                    task.wait(1) -- Espera para não sobrecarregar
                 end
+            end)
+        else
+            if autoGetThread then
+                task.cancel(autoGetThread)
+                autoGetThread = nil
             end
         end
-        
-        local tycoonsFolder = workspace:FindFirstChild("Tycoons")
-        if tycoonsFolder then
-            lookForGivers(tycoonsFolder)
-        end
-
-        if foundCount == 0 then
-            local lbl = Instance.new("TextLabel"); lbl.Text = "Nenhum 'Tool Giver' encontrado."; lbl.Size = UDim2.new(0.9, 0, 0, 30); lbl.BackgroundTransparency = 1; lbl.TextColor3 = Color3.fromRGB(200, 200, 200); lbl.Parent = weaponListFrame
-        end
-    end
-
-    local function openArsenalWindow()
-        arsenalWindow = Library:CreateWindow("Arsenal do Mapa", UDim2.new(0, 350, 0, 450))
-        weaponListFrame = arsenalWindow:AddScrollableList()
-        weaponListFrame.Size = UDim2.new(0.95, 0, 0, 350)
-        arsenalWindow:AddButton("Atualizar Lista", scanAndPopulateWeons)
-        scanAndPopulateWeapons()
-    end
-    Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
+    end, false)
 end
 
-print("✅ Carregamento Finalizado (v21).")
+print("✅ Carregamento Finalizado (v22).")
