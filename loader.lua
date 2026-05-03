@@ -87,74 +87,80 @@ cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
 
--- Etapa 3.5: Adicionar o Módulo de Scanner de Mapa (Com Janela e Botão de Copiar)
-print("\n--- Etapa 3.5: Adicionando Scanner de Mapa com GUI ---")
+-- Etapa 3.5: Adicionar o Módulo de Scanner de Mapa (CORRIGIDO)
+print("\n--- Etapa 3.5: Adicionando Scanner de Mapa com GUI (Corrigido) ---")
 do
     local function runMapScan()
         local scanWindow = Library:CreateWindow("Resultado do Scan", UDim2.new(0, 500, 0, 400), UDim2.new(0.5, -250, 0.5, -200))
         
-        scanWindow:AddLabel("Varredura em andamento...")
+        -- CORREÇÃO: Criar um TextLabel manualmente em vez de usar AddLabel
+        local statusLabel = Instance.new("TextLabel")
+        statusLabel.Text = "Varredura em andamento..."
+        statusLabel.Size = UDim2.new(1, -10, 0, 30)
+        statusLabel.Position = UDim2.new(0, 5, 0, 5)
+        statusLabel.Font = Enum.Font.SourceSansBold
+        statusLabel.TextSize = 16
+        statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        statusLabel.BackgroundTransparency = 1
+        statusLabel.TextXAlignment = Enum.TextXAlignment.Center
+        statusLabel.Parent = scanWindow.Container
 
         local logLines = {}
         local foundItems = {}
 
         local function scan(instance, depth)
-            if depth > 8 then return end
-
+            if depth > 10 then return end
             pcall(function()
                 local name = string.lower(instance.Name)
                 local path = instance:GetFullName()
-
                 if string.find(name, "tool") or string.find(name, "giver") or string.find(name, "weapon") or instance:IsA("Tool") then
                     if not foundItems[path] then
                         table.insert(logLines, path)
                         foundItems[path] = true
                     end
                 end
-
                 for _, child in ipairs(instance:GetChildren()) do
                     scan(child, depth + 1)
                 end
             end)
         end
 
-        -- Roda a varredura em uma nova thread para não travar a GUI
         task.spawn(function()
             scan(workspace, 0)
-            
             local fullLog = table.concat(logLines, "\n")
             if #fullLog == 0 then
                 fullLog = "Nenhum item suspeito (tool, giver, weapon) encontrado no workspace."
             end
 
-            -- Limpa a janela e adiciona os resultados
-            scanWindow.Container:ClearAllChildren()
+            statusLabel:Destroy()
 
             local logBox = Instance.new("TextBox")
-            logBox.Name = "LogDisplay"
             logBox.MultiLine = true
             logBox.TextWrapped = true
             logBox.ReadOnly = true
             logBox.TextXAlignment = Enum.TextXAlignment.Left
             logBox.TextYAlignment = Enum.TextYAlignment.Top
-            logBox.Font = Enum.Font.SourceSans
-            logBox.TextSize = 14
+            logBox.Font = Enum.Font.Code
+            logBox.TextSize = 12
             logBox.TextColor3 = Color3.fromRGB(240, 240, 240)
             logBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            logBox.Size = UDim2.new(1, -10, 1, -80)
+            logBox.Size = UDim2.new(1, -10, 1, -50)
             logBox.Position = UDim2.new(0, 5, 0, 5)
             logBox.Text = fullLog
             logBox.Parent = scanWindow.Container
 
-            scanWindow:AddButton("Copiar Logs", function()
+            local copyButton = scanWindow:AddButton("Copiar Logs", function()
                 setclipboard(fullLog)
-                scanWindow:AddLabel("Copiado!") -- Feedback para o usuário
+                -- CORREÇÃO: Não usar AddLabel aqui também
+                copyButton.Text = "Copiado!"
+                task.wait(2)
+                copyButton.Text = "Copiar Logs"
             end)
         end)
     end
 
     Misc:AddModule("🔬 Iniciar Scan do Mapa", runMapScan, true)
-    print("✅ Módulo de Scanner de Mapa com GUI adicionado.")
+    print("✅ Módulo de Scanner de Mapa (corrigido) adicionado.")
 end
 
 
@@ -169,7 +175,17 @@ do
                 arsenalWindow.Title.Font = Enum.Font.SourceSansBold
                 arsenalWindow.Title.TextSize = 16
             end
-            arsenalWindow:AddLabel("Execute o Scan do Mapa primeiro!")
+            -- CORREÇÃO: Criar um TextLabel manualmente em vez de usar AddLabel
+            local tempLabel = Instance.new("TextLabel")
+            tempLabel.Text = "Execute o Scan do Mapa primeiro!"
+            tempLabel.Size = UDim2.new(1, -10, 1, -10)
+            tempLabel.Position = UDim2.new(0, 5, 0, 5)
+            tempLabel.Font = Enum.Font.SourceSans
+            tempLabel.TextSize = 14
+            tempLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            tempLabel.TextWrapped = true
+            tempLabel.BackgroundTransparency = 1
+            tempLabel.Parent = arsenalWindow.Container
         end
         arsenalWindow.Frame.Visible = not arsenalWindow.Frame.Visible
     end
@@ -218,7 +234,7 @@ killauraLoop = coroutine.wrap(function()
                 local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local localChar = game:GetService("Players").LocalPlayer.Character
                 if hum and hum.Health > 0 and hrp and localChar and localChar:FindFirstChild("HumanoidRootPart") then
-                    local dist = (hrp.Position - localChar.HumanoidRootPart.Position).Magnitude
+                    local dist = (hrp.Position - localChar.HumanoidRootP art.Position).Magnitude
                     if dist <= Library.Killaura.Distance then
                         attackTarget(targetPlayer.Character)
                     end
