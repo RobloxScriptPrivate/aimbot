@@ -1,4 +1,4 @@
--- Manus GUI Library V7.3 (Full Framework & Restored Features)
+-- Manus GUI Library V7.4 (Framework & Original UI Restored)
 local Library = {}
 
 -- Serviços
@@ -81,7 +81,7 @@ end
 --[[
     2. INICIALIZAÇÃO DA GUI
 ]]
-local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_3"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_4"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then ScreenGui.Parent = player:WaitForChild("PlayerGui") end
 Library.ScreenGui = ScreenGui
 
@@ -112,11 +112,6 @@ function Library:CreateWindow(title, size, position)
     windowObj.Frame=WindowFrame; windowObj.Content=ContentFrame; windowObj.Title=TitleBar; makeDraggable(WindowFrame,TitleBar); WindowFrame.Parent=MainFrame
     function windowObj:AddButton(t,c)
         local b=Instance.new("TextButton"); b.Size=UDim2.new(0.9,0,0,32); b.BackgroundColor3=Color3.fromRGB(50,50,50); b.TextColor3=Color3.fromRGB(220,220,220); b.Text=t; b.TextSize=14; b.Font=Enum.Font.SourceSansBold; b.Parent=ContentFrame; Instance.new("UICorner",b); b.MouseButton1Click:Connect(c); return b
-    end
-    function windowObj:AddTextBox(p, cb)
-        local t=Instance.new("TextBox"); t.Size=UDim2.new(0.9,0,0,32); t.BackgroundColor3=Color3.fromRGB(35,35,35); t.TextColor3=Color3.fromRGB(255,255,255); t.PlaceholderText=p or ""; t.TextSize=14; t.Font=Enum.Font.SourceSans; t.Parent=ContentFrame; Instance.new("UICorner",t);
-        if cb then t.FocusLost:Connect(function(enter) if enter then cb(t.Text) end end) end
-        return t
     end
     function windowObj:AddLabel(text, centered)
         local label = Instance.new("TextLabel"); label.Size = UDim2.new(0.9, 0, 0, 30); label.Text = text; label.Font = Enum.Font.SourceSans; label.TextSize = 14; label.TextColor3 = Color3.fromRGB(220, 220, 220); label.BackgroundTransparency = 1; label.TextXAlignment = centered and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left; label.Parent = ContentFrame
@@ -187,13 +182,19 @@ function Library:CreateOverlay(id, title, color)
 end
 
 --[[
-    6. JANELAS DE CONFIGURAÇÃO (RESTAURADAS)
+    6. JANELAS DE CONFIGURAÇÃO (RESTAURADAS COM ABAS)
 ]]
 function Library:OpenWhitelistWindow()
     local window = Library:CreateWindow("🛡️ Whitelist & Teleporte", UDim2.new(0, 400, 0, 350))
     local content = window.Content
+    local currentTab = "Marcador"
+    
+    local TabFrame = Instance.new("Frame"); TabFrame.Size=UDim2.new(0.9,0,0,30); TabFrame.BackgroundTransparency=1; TabFrame.Parent=content
+    local Btn1 = Instance.new("TextButton"); Btn1.Size=UDim2.new(0.5,-2,1,0); Btn1.BackgroundColor3=Color3.fromRGB(0,150,255); Btn1.Text="Marcador"; Btn1.TextColor3=Color3.fromRGB(255,255,255); Btn1.Font=Enum.Font.SourceSansBold; Btn1.Parent=TabFrame; Instance.new("UICorner",Btn1)
+    local Btn2 = Instance.new("TextButton"); Btn2.Size=UDim2.new(0.5,-2,1,0); Btn2.Position=UDim2.new(0.5,2,0,0); Btn2.BackgroundColor3=Color3.fromRGB(45,45,45); Btn2.Text="Marcados"; Btn2.TextColor3=Color3.fromRGB(200,200,200); Btn2.Font=Enum.Font.SourceSansBold; Btn2.Parent=TabFrame; Instance.new("UICorner",Btn2)
+    
     local scroll = window:AddScrollableList()
-    scroll.Size = UDim2.new(0.95, 0, 0.8, 0)
+    scroll.Size = UDim2.new(0.95, 0, 0.7, 0)
     
     local function refresh()
         scroll:ClearAllChildren()
@@ -201,16 +202,19 @@ function Library:OpenWhitelistWindow()
         for _, p in ipairs(Players:GetPlayers()) do
             if p == player then continue end
             local isW = Library:IsWhitelisted(p)
-            local pF=Instance.new("Frame"); pF.Size=UDim2.new(0.95,0,0,35); pF.BackgroundTransparency=1; pF.Parent=scroll
-            local nL=Instance.new("TextLabel"); nL.Size=UDim2.new(1,-110,1,0); nL.Text="  "..p.DisplayName; nL.TextColor3=Color3.fromRGB(220,220,220); nL.Font=Enum.Font.SourceSans; nL.TextSize=14; nL.TextXAlignment=Enum.TextXAlignment.Left; nL.BackgroundTransparency=1; nL.Parent=pF
-            local wB=Instance.new("TextButton"); wB.Size=UDim2.new(0,50,0.8,0); wB.Position=UDim2.new(1,-105,0.1,0); wB.BackgroundColor3=isW and Color3.fromRGB(0,180,80) or Color3.fromRGB(50,50,50); wB.Text=isW and "WL" or "Add"; wB.TextColor3=Color3.fromRGB(255,255,255); wB.Font=Enum.Font.SourceSansBold; wB.TextSize=12; wB.Parent=pF; Instance.new("UICorner",wB)
-            wB.MouseButton1Click:Connect(function() Library:ToggleWhitelist(p); refresh() end)
-            local tB=Instance.new("TextButton"); tB.Size=UDim2.new(0,50,0.8,0); tB.Position=UDim2.new(1,-50,0.1,0); tB.BackgroundColor3=Color3.fromRGB(0,150,255); tB.Text="TP"; tB.TextColor3=Color3.fromRGB(255,255,255); tB.Font=Enum.Font.SourceSansBold; tB.TextSize=12; tB.Parent=pF; Instance.new("UICorner",tB)
-            tB.MouseButton1Click:Connect(function() Library:TeleportToPlayer(p) end)
+            if (currentTab == "Marcador") or (currentTab == "Marcados" and isW) then
+                local pF=Instance.new("Frame"); pF.Size=UDim2.new(0.95,0,0,35); pF.BackgroundTransparency=1; pF.Parent=scroll
+                local nL=Instance.new("TextLabel"); nL.Size=UDim2.new(1,-110,1,0); nL.Text="  "..p.DisplayName; nL.TextColor3=Color3.fromRGB(220,220,220); nL.Font=Enum.Font.SourceSans; nL.TextSize=14; nL.TextXAlignment=Enum.TextXAlignment.Left; nL.BackgroundTransparency=1; nL.Parent=pF
+                local wB=Instance.new("TextButton"); wB.Size=UDim2.new(0,50,0.8,0); wB.Position=UDim2.new(1,-105,0.1,0); wB.BackgroundColor3=isW and Color3.fromRGB(0,180,80) or Color3.fromRGB(50,50,50); wB.Text=isW and "WL" or "Add"; wB.TextColor3=Color3.fromRGB(255,255,255); wB.Font=Enum.Font.SourceSansBold; wB.TextSize=12; wB.Parent=pF; Instance.new("UICorner",wB)
+                wB.MouseButton1Click:Connect(function() Library:ToggleWhitelist(p); refresh() end)
+                local tB=Instance.new("TextButton"); tB.Size=UDim2.new(0,50,0.8,0); tB.Position=UDim2.new(1,-50,0.1,0); tB.BackgroundColor3=Color3.fromRGB(0,150,255); tB.Text="TP"; tB.TextColor3=Color3.fromRGB(255,255,255); tB.Font=Enum.Font.SourceSansBold; tB.TextSize=12; tB.Parent=pF; Instance.new("UICorner",tB)
+                tB.MouseButton1Click:Connect(function() Library:TeleportToPlayer(p) end)
+            end
         end
     end
+    Btn1.MouseButton1Click:Connect(function() currentTab="Marcador"; Btn1.BackgroundColor3=Color3.fromRGB(0,150,255); Btn2.BackgroundColor3=Color3.fromRGB(45,45,45); refresh() end)
+    Btn2.MouseButton1Click:Connect(function() currentTab="Marcados"; Btn2.BackgroundColor3=Color3.fromRGB(0,150,255); Btn1.BackgroundColor3=Color3.fromRGB(45,45,45); refresh() end)
     refresh()
-    Players.PlayerAdded:Connect(refresh); Players.PlayerRemoving:Connect(refresh)
 end
 
 function Library:OpenKillauraTargetWindow()

@@ -1,6 +1,6 @@
--- ========== LOADER PRINCIPAL (v16.4 - Final Fix) ==========
--- Corrigido: Erro de 'ReadOnly' em TextBox e layout da janela de Scan.
-print("🔧 Iniciando carregamento v16.4. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v16.5 - Final Polish) ==========
+-- Corrigido: Aimbot aparecendo, Scan no F9, Arsenal com texto maior.
+print("🔧 Iniciando carregamento v16.5. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -29,10 +29,16 @@ local function LoadModule(filename, category)
     local code = fetch(filename)
     if code then
         local func, err = loadstring(code)
-        if func then pcall(func, Library, category) end
+        if func then 
+            local success, result = pcall(func, Library, category)
+            if not success then warn("Erro ao executar "..filename..": "..tostring(result)) end
+        else
+            warn("Erro de sintaxe em "..filename..": "..tostring(err))
+        end
     end
 end
 
+-- Carregar módulos (Aimbot agora deve aparecer corretamente)
 LoadModule("aimbot.lua",   Combat)
 LoadModule("hitbox.lua",   Combat)
 LoadModule("esp.lua",      Visual)
@@ -40,51 +46,35 @@ LoadModule("nametag.lua",  Visual)
 LoadModule("movement.lua", Movement)
 LoadModule("teleport.lua", Teleport)
 
--- Módulo de Scanner de Mapa (CORREÇÃO DEFINITIVA)
+-- Módulo de Scanner de Mapa (Scan no F9)
 do
     local scanWindow
     local function runMapScan()
         if scanWindow and scanWindow.Frame.Parent then scanWindow.Frame:Destroy() end
-        scanWindow = Library:CreateWindow("Resultado do Scan", UDim2.new(0, 500, 0, 400))
-        local statusLabel = scanWindow:AddLabel("Varredura em andamento...", true)
+        scanWindow = Library:CreateWindow("Scan do Mapa", UDim2.new(0, 300, 0, 150))
+        scanWindow:AddLabel("Logs detalhados enviados para o F9", true)
 
+        local logLines = {}
+        local function scan(instance, depth)
+            if depth > 10 then return end
+            pcall(function()
+                local name = string.lower(instance.Name)
+                if name:find("tool") or name:find("giver") or instance:IsA("Tool") or instance:IsA("ClickDetector") then
+                    local entry = "[" .. instance.ClassName .. "] " .. instance:GetFullName()
+                    table.insert(logLines, entry)
+                    print("🔬 Scan: " .. entry) -- Envia para o F9
+                end
+                for _, child in ipairs(instance:GetChildren()) do scan(child, depth + 1) end
+            end)
+        end
+        
         task.spawn(function()
-            local logLines = {}
-            local function scan(instance, depth)
-                if depth > 10 then return end
-                pcall(function()
-                    local name = string.lower(instance.Name)
-                    if name:find("tool") or name:find("giver") or instance:IsA("Tool") or instance:IsA("ClickDetector") then
-                        table.insert(logLines, "[" .. instance.ClassName .. "] " .. instance:GetFullName())
-                    end
-                    for _, child in ipairs(instance:GetChildren()) do scan(child, depth + 1) end
-                end)
-            end
+            print("--- INICIANDO SCAN DO MAPA ---")
             scan(workspace, 0)
-            statusLabel:Destroy()
-
-            local fullLog = table.concat(logLines, "\n")
-            if #logLines == 0 then fullLog = "Nenhum item encontrado." end
-
-            -- Criar lista rolável
-            local scrollList = scanWindow:AddScrollableList()
-            scrollList.Size = UDim2.new(0.95, 0, 0, 250) -- Espaço para o botão embaixo
+            print("--- SCAN FINALIZADO ("..#logLines.." itens) ---")
             
-            local logBox = Instance.new("TextBox")
-            logBox.Size = UDim2.new(1, -10, 0, math.max(250, #logLines * 16))
-            logBox.Text = fullLog
-            logBox.MultiLine = true
-            logBox.TextEditable = false -- Correção: Usar TextEditable em vez de ReadOnly
-            logBox.Font = Enum.Font.Code
-            logBox.TextSize = 12
-            logBox.TextColor3 = Color3.fromRGB(240, 240, 240)
-            logBox.BackgroundTransparency = 1
-            logBox.TextXAlignment = Enum.TextXAlignment.Left
-            logBox.TextYAlignment = Enum.TextYAlignment.Top
-            logBox.Parent = scrollList
-
-            -- Botão de copiar (Fora do scroll para ser visível)
-            scanWindow:AddButton("Copiar Logs", function() 
+            local fullLog = table.concat(logLines, "\n")
+            scanWindow:AddButton("Copiar Logs para Clipboard", function() 
                 if setclipboard then setclipboard(fullLog); print("✅ Logs copiados!") end
             end)
         end)
@@ -92,7 +82,7 @@ do
     Misc:AddModule("🔬 Scan do Mapa", runMapScan, true)
 end
 
--- Módulo Arsenal (CORREÇÃO DEFINITIVA)
+-- Módulo Arsenal (Texto maior nos botões)
 do
     local arsenalWindow, weaponListFrame
     local toolGiverNames = { "ToolGiver", "WeaponGiver", "SwordGiver", "GunGiver" }
@@ -110,7 +100,14 @@ do
                     if tool:IsA("Tool") then
                         foundCount = foundCount + 1
                         local btn = Instance.new("TextButton")
-                        btn.Text = "Pegar: " .. tool.Name; btn.Size = UDim2.new(0.9, 0, 0, 30); btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); btn.TextColor3 = Color3.fromRGB(255, 255, 255); btn.Font = Enum.Font.SourceSansBold; btn.Parent = weaponListFrame; Instance.new("UICorner", btn)
+                        btn.Text = "Pegar: " .. tool.Name; 
+                        btn.Size = UDim2.new(0.9, 0, 0, 40); -- Botão maior
+                        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); 
+                        btn.TextColor3 = Color3.fromRGB(255, 255, 255); 
+                        btn.Font = Enum.Font.SourceSansBold; 
+                        btn.TextSize = 16; -- Texto maior
+                        btn.Parent = weaponListFrame; 
+                        Instance.new("UICorner", btn)
                         btn.MouseButton1Click:Connect(function()
                             local root = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                             if root then
@@ -139,4 +136,4 @@ do
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
 end
 
-print("✅ Carregamento Finalizado (v16.4).")
+print("✅ Carregamento Finalizado (v16.5).")
