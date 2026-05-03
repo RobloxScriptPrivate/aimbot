@@ -1,4 +1,4 @@
--- Manus GUI Library V7.2 (Framework Complete)
+-- Manus GUI Library V7.3 (Full Framework & Restored Features)
 local Library = {}
 
 -- Serviços
@@ -65,7 +65,7 @@ end
 
 function Library:TeleportToPlayer(targetPlayer)
     if tick() < Library.TeleportCooldownUntil then
-        print("⚠️ Teleporte em cooldown! Aguarde.")
+        print("⚠️ Teleporte em cooldown!")
         return
     end
     local localChar = player.Character
@@ -74,7 +74,6 @@ function Library:TeleportToPlayer(targetPlayer)
     local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
     if localRoot and targetRoot then
         localRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 3, 0)
-        print("🚀 Teleportado para " .. targetPlayer.Name)
         Library.TeleportCooldownUntil = tick() + Library.TeleportCooldownDuration
     end
 end
@@ -82,7 +81,7 @@ end
 --[[
     2. INICIALIZAÇÃO DA GUI
 ]]
-local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_2"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_3"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then ScreenGui.Parent = player:WaitForChild("PlayerGui") end
 Library.ScreenGui = ScreenGui
 
@@ -100,7 +99,7 @@ local function loadCategoryPositions() return Library:LoadConfig("category_posit
 local function makeDraggable(f, h, onDragEnd) local d,i,s,p; h.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 then d=true;s=inp.Position;p=f.Position;inp.Changed:Connect(function() if inp.UserInputState==Enum.UserInputState.End then d=false;if onDragEnd then onDragEnd() end end end) end end); h.InputChanged:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseMovement then i=inp end end); UserInputService.InputChanged:Connect(function(inp) if inp==i and d then local a=inp.Position-s;f.Position=UDim2.new(p.X.Scale,p.X.Offset+a.X,p.Y.Scale,p.Y.Offset+a.Y) end end) end
 
 --[[
-    4. API DE JANELAS E CATEGORIAS (FRAMEWORK)
+    4. API DE JANELAS E CATEGORIAS
 ]]
 function Library:CreateWindow(title, size, position)
     if Library.ActiveWindows[title] and Library.ActiveWindows[title].Frame.Parent then Library.ActiveWindows[title].Frame:Destroy() end
@@ -172,7 +171,7 @@ function Library:CreateCategory(n,p)
 end
 
 --[[
-    5. OVERLAY (RESTAURADO)
+    5. OVERLAY & FEATURES
 ]]
 function Library:CreateOverlay(id, title, color)
     if Library.Overlays[id] then return Library.Overlays[id] end
@@ -188,25 +187,64 @@ function Library:CreateOverlay(id, title, color)
 end
 
 --[[
-    6. JANELAS ESPECÍFICAS (RESTAURADAS)
+    6. JANELAS DE CONFIGURAÇÃO (RESTAURADAS)
 ]]
 function Library:OpenWhitelistWindow()
-    local window = Library:CreateWindow("🛡️ Whitelist", UDim2.new(0, 400, 0, 350))
-    window:AddLabel("Gerenciamento de Jogadores", true)
-    window:AddButton("Fechar", function() window.Frame:Destroy() end)
+    local window = Library:CreateWindow("🛡️ Whitelist & Teleporte", UDim2.new(0, 400, 0, 350))
+    local content = window.Content
+    local scroll = window:AddScrollableList()
+    scroll.Size = UDim2.new(0.95, 0, 0.8, 0)
+    
+    local function refresh()
+        scroll:ClearAllChildren()
+        Instance.new("UIListLayout", scroll).Padding = UDim.new(0,5)
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p == player then continue end
+            local isW = Library:IsWhitelisted(p)
+            local pF=Instance.new("Frame"); pF.Size=UDim2.new(0.95,0,0,35); pF.BackgroundTransparency=1; pF.Parent=scroll
+            local nL=Instance.new("TextLabel"); nL.Size=UDim2.new(1,-110,1,0); nL.Text="  "..p.DisplayName; nL.TextColor3=Color3.fromRGB(220,220,220); nL.Font=Enum.Font.SourceSans; nL.TextSize=14; nL.TextXAlignment=Enum.TextXAlignment.Left; nL.BackgroundTransparency=1; nL.Parent=pF
+            local wB=Instance.new("TextButton"); wB.Size=UDim2.new(0,50,0.8,0); wB.Position=UDim2.new(1,-105,0.1,0); wB.BackgroundColor3=isW and Color3.fromRGB(0,180,80) or Color3.fromRGB(50,50,50); wB.Text=isW and "WL" or "Add"; wB.TextColor3=Color3.fromRGB(255,255,255); wB.Font=Enum.Font.SourceSansBold; wB.TextSize=12; wB.Parent=pF; Instance.new("UICorner",wB)
+            wB.MouseButton1Click:Connect(function() Library:ToggleWhitelist(p); refresh() end)
+            local tB=Instance.new("TextButton"); tB.Size=UDim2.new(0,50,0.8,0); tB.Position=UDim2.new(1,-50,0.1,0); tB.BackgroundColor3=Color3.fromRGB(0,150,255); tB.Text="TP"; tB.TextColor3=Color3.fromRGB(255,255,255); tB.Font=Enum.Font.SourceSansBold; tB.TextSize=12; tB.Parent=pF; Instance.new("UICorner",tB)
+            tB.MouseButton1Click:Connect(function() Library:TeleportToPlayer(p) end)
+        end
+    end
+    refresh()
+    Players.PlayerAdded:Connect(refresh); Players.PlayerRemoving:Connect(refresh)
 end
 
 function Library:OpenKillauraTargetWindow()
-    local window = Library:CreateWindow("🎯 Alvo Killaura", UDim2.new(0, 300, 0, 300))
-    window:AddLabel("Selecione o Alvo", true)
+    local window = Library:CreateWindow("🎯 Alvo Killaura", UDim2.new(0, 300, 0, 350))
+    local scroll = window:AddScrollableList()
+    scroll.Size = UDim2.new(0.95, 0, 0.8, 0)
+    local function refresh()
+        scroll:ClearAllChildren()
+        Instance.new("UIListLayout", scroll).Padding = UDim.new(0,5)
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p == player then continue end
+            local pF=Instance.new("Frame"); pF.Size=UDim2.new(0.95,0,0,35); pF.BackgroundTransparency=1; pF.Parent=scroll
+            local nL=Instance.new("TextLabel"); nL.Size=UDim2.new(1,-60,1,0); nL.Text="  "..p.DisplayName; nL.TextColor3=Color3.fromRGB(220,220,220); nL.Font=Enum.Font.SourceSans; nL.TextSize=14; nL.TextXAlignment=Enum.TextXAlignment.Left; nL.BackgroundTransparency=1; nL.Parent=pF
+            local sB=Instance.new("TextButton"); sB.Size=UDim2.new(0,50,0.8,0); sB.Position=UDim2.new(1,-55,0.1,0); sB.BackgroundColor3=(Library.Killaura.Target==p) and Color3.fromRGB(0,180,80) or Color3.fromRGB(50,50,50); sB.Text=(Library.Killaura.Target==p) and "ALVO" or "Sel."; sB.TextColor3=Color3.fromRGB(255,255,255); sB.Font=Enum.Font.SourceSansBold; sB.TextSize=12; sB.Parent=pF; Instance.new("UICorner",sB)
+            sB.MouseButton1Click:Connect(function() Library.Killaura.Target=p; refresh() end)
+        end
+    end
+    refresh()
 end
 
 -- Configurações Globais
 SettingsBtn.MouseButton1Click:Connect(function() 
-    local w=Library:CreateWindow("Configurações Globais",UDim2.new(0,300,0,260)); 
-    w:AddButton("🛡️ Whitelist", function() Library:OpenWhitelistWindow() end)
+    local w=Library:CreateWindow("Configurações Globais",UDim2.new(0,300,0,300)); 
+    w:AddButton("🛡️ Gerenciar Jogadores", function() Library:OpenWhitelistWindow() end)
     w:AddButton("🎯 Alvo Killaura", function() Library:OpenKillauraTargetWindow() end)
-    w:AddButton("❌ Remover Script", function() ScreenGui:Destroy() end) 
+    local kb=w:AddButton("⌨️ Atalho Menu: "..Library.OpenKey.Name, function() end)
+    kb.MouseButton1Click:Connect(function() kb.Text="..."; local c; c=UserInputService.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Keyboard then Library.OpenKey=i.KeyCode; kb.Text="⌨️ Atalho Menu: "..i.KeyCode.Name; c:Disconnect() end end) end)
+    w:AddButton("❌ Remover Script (K)", function() ScreenGui:Destroy() end) 
+end)
+
+-- Atalhos Globais
+UserInputService.InputBegan:Connect(function(i,p) 
+    if not p and i.KeyCode==Library.OpenKey then MainFrame.Visible = not MainFrame.Visible end
+    if not p and i.KeyCode==Library.RemoveKey then ScreenGui:Destroy() end
 end)
 
 return Library
