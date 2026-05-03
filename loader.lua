@@ -1,40 +1,23 @@
--- ========== LOADER PRINCIPAL (v16.3 - Strictly Remote) ==========
--- Corrigido: Removido qualquer uso de readfile() que causava erro de diretório.
-print("🔧 Iniciando carregamento v16.3. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v16.4 - Final Fix) ==========
+-- Corrigido: Erro de 'ReadOnly' em TextBox e layout da janela de Scan.
+print("🔧 Iniciando carregamento v16.4. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
--- Função robusta para buscar código da URL
 local function fetch(file)
     local cache_buster = "?v=" .. os.time() .. "&r=" .. math.random(1, 1000000)
     local url = BASE_URL .. file .. cache_buster
-    print("⚡ Baixando: " .. file)
-    
-    local success, content = pcall(function()
-        return game:HttpGet(url, true)
-    end)
-    
-    if success and content and #content > 0 then
-        return content
-    else
-        warn("❌ FALHA NO DOWNLOAD: "..file.." | Erro: "..tostring(content))
-        return nil
-    end
+    local success, content = pcall(function() return game:HttpGet(url, true) end)
+    if success and content and #content > 0 then return content end
+    warn("❌ Erro ao baixar: "..file)
+    return nil
 end
 
--- Etapa 1: Carregar a biblioteca GUI (Remoto)
 local gui_code = fetch("gui.lua")
-if not gui_code then 
-    return warn("❌ ERRO CRÍTICO: Não foi possível baixar a gui.lua do GitHub.") 
-end
-
+if not gui_code then return end
 local Library = loadstring(gui_code)()
-if not Library then 
-    return warn("❌ ERRO CRÍTICO: Falha ao executar a biblioteca GUI.") 
-end
-print("✅ Biblioteca GUI carregada com sucesso.")
+if not Library then return end
 
--- Etapa 2: Criar as categorias
 local startX, startY, catWidth, spacing = 10, 120, 150, 10
 local Combat   = Library:CreateCategory("⚔️ Combat",    UDim2.new(0, startX, 0, startY))
 local Visual   = Library:CreateCategory("👁️ Visual",    UDim2.new(0, startX + catWidth + spacing, 0, startY))
@@ -42,25 +25,14 @@ local Movement = Library:CreateCategory("🏃 Movimento", UDim2.new(0, startX + 
 local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, startX + (catWidth + spacing) * 3, 0, startY))
 local Misc     = Library:CreateCategory("✨ Misc",      UDim2.new(0, startX + (catWidth + spacing) * 4, 0, startY))
 
--- Função para carregar módulos remotos
 local function LoadModule(filename, category)
     local code = fetch(filename)
     if code then
         local func, err = loadstring(code)
-        if func then
-            local success, result = pcall(func, Library, category)
-            if success then 
-                print("✅ Módulo carregado: "..filename)
-                return result 
-            end
-            warn("❌ Erro ao executar "..filename..": "..tostring(result))
-        else
-            warn("❌ Erro de sintaxe em "..filename..": "..tostring(err))
-        end
+        if func then pcall(func, Library, category) end
     end
 end
 
--- Carregar módulos padrão do GitHub
 LoadModule("aimbot.lua",   Combat)
 LoadModule("hitbox.lua",   Combat)
 LoadModule("esp.lua",      Visual)
@@ -68,7 +40,7 @@ LoadModule("nametag.lua",  Visual)
 LoadModule("movement.lua", Movement)
 LoadModule("teleport.lua", Teleport)
 
--- Etapa 3.5: Módulo de Scanner de Mapa (Corrigido)
+-- Módulo de Scanner de Mapa (CORREÇÃO DEFINITIVA)
 do
     local scanWindow
     local function runMapScan()
@@ -92,24 +64,35 @@ do
             statusLabel:Destroy()
 
             local fullLog = table.concat(logLines, "\n")
-            if #logLines == 0 then fullLog = "Nenhum item relevante encontrado." end
+            if #logLines == 0 then fullLog = "Nenhum item encontrado." end
 
+            -- Criar lista rolável
             local scrollList = scanWindow:AddScrollableList()
-            scrollList.Size = UDim2.new(0.95, 0, 0, 280)
+            scrollList.Size = UDim2.new(0.95, 0, 0, 250) -- Espaço para o botão embaixo
             
             local logBox = Instance.new("TextBox")
-            logBox.Size = UDim2.new(1, -10, 0, math.max(280, #logLines * 16))
-            logBox.Text = fullLog; logBox.MultiLine = true; logBox.ReadOnly = true; logBox.Font = Enum.Font.Code; logBox.TextSize = 12; logBox.TextColor3 = Color3.fromRGB(240, 240, 240); logBox.BackgroundTransparency = 1; logBox.TextXAlignment = Enum.TextXAlignment.Left; logBox.TextYAlignment = Enum.TextYAlignment.Top; logBox.Parent = scrollList
+            logBox.Size = UDim2.new(1, -10, 0, math.max(250, #logLines * 16))
+            logBox.Text = fullLog
+            logBox.MultiLine = true
+            logBox.TextEditable = false -- Correção: Usar TextEditable em vez de ReadOnly
+            logBox.Font = Enum.Font.Code
+            logBox.TextSize = 12
+            logBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+            logBox.BackgroundTransparency = 1
+            logBox.TextXAlignment = Enum.TextXAlignment.Left
+            logBox.TextYAlignment = Enum.TextYAlignment.Top
+            logBox.Parent = scrollList
 
+            -- Botão de copiar (Fora do scroll para ser visível)
             scanWindow:AddButton("Copiar Logs", function() 
-                if setclipboard then setclipboard(fullLog); print("✅ Copiado!") end
+                if setclipboard then setclipboard(fullLog); print("✅ Logs copiados!") end
             end)
         end)
     end
     Misc:AddModule("🔬 Scan do Mapa", runMapScan, true)
 end
 
--- Etapa 3.6: Módulo Arsenal (Corrigido)
+-- Módulo Arsenal (CORREÇÃO DEFINITIVA)
 do
     local arsenalWindow, weaponListFrame
     local toolGiverNames = { "ToolGiver", "WeaponGiver", "SwordGiver", "GunGiver" }
@@ -156,4 +139,4 @@ do
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
 end
 
-print("✅ Carregamento Finalizado (v16.3).")
+print("✅ Carregamento Finalizado (v16.4).")
