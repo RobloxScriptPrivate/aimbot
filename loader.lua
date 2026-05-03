@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v24 - Diagnostic Scan Module) ==========
-print("🔧 Iniciando carregamento v24. Arsenal substituído por ferramenta de Scan Estrutural.")
+-- ========== LOADER PRINCIPAL (v25 - User-Designed Scan UI) ==========
+print("🔧 Iniciando carregamento v25. Design do Scan atualizado para o seu.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -60,15 +60,16 @@ do
 end
 
 --[[
-    Módulo de Scan Estrutural (v1 - ReplicatedStorage)
-    Substitui o Arsenal para fins de diagnóstico, como solicitado.
+    Módulo de Scan Estrutural (v2 - Seu Design)
 ]]
 do
     local function runStructuralScan()
-        local scanWindow = Library:CreateWindow("🔬 Scan Estrutural", UDim2.new(0.5, -200, 0.5, -200), 400, 400)
-        scanWindow:AddLabel("A saída será enviada para o console (F9)", true)
+        -- 1. Cria uma janela de status pequena e temporária
+        local scanWindow = Library:CreateWindow("🔬 Scan em Progresso...", UDim2.new(0.5, -150, 0.5, -50), 300, 100)
+        scanWindow:AddLabel("Scan rodando... Verifique o console (F9).", true)
 
-        local function doScan()
+        -- 2. Inicia o scan em uma nova thread para não travar a UI
+        task.spawn(function()
             local ReplicatedStorage = game:GetService("ReplicatedStorage")
             local output = {}
 
@@ -76,36 +77,39 @@ do
                 pcall(function()
                     local indent = string.rep("  ", depth)
                     table.insert(output, indent .. "[" .. instance.ClassName .. "] " .. instance.Name)
-                    
                     for _, child in ipairs(instance:GetChildren()) do
                         scan(child, depth + 1)
                     end
                 end)
             end
 
-            task.spawn(function()
-                print("--- INICIANDO SCAN DO REPLICATEDSTORAGE ---")
-                table.insert(output, "--- INICIANDO SCAN DO REPLICATEDSTORAGE ---")
-                
-                scan(ReplicatedStorage, 1)
+            print("--- INICIANDO SCAN DO REPLICATEDSTORAGE (v25) ---")
+            table.insert(output, "--- INICIANDO SCAN DO REPLICATEDSTORAGE (v25) ---")
+            
+            scan(ReplicatedStorage, 1)
 
-                print("--- SCAN FINALIZADO ---")
-                table.insert(output, "--- SCAN FINALIZADO ---")
-                
-                local fullLog = table.concat(output, "\n")
-                scanWindow:AddButton("Copiar Logs para Clipboard", function() 
-                    if setclipboard then 
-                        setclipboard(fullLog)
-                        print("✅ Logs copiados para a área de transferência!")
-                    end
-                end)
+            print("--- SCAN FINALIZADO ---")
+            table.insert(output, "--- SCAN FINALIZADO ---")
+            
+            local fullLog = table.concat(output, "\n")
+
+            -- 3. Limpa a janela temporária e adiciona o botão de copiar
+            scanWindow.Frame.Content:ClearAllChildren()
+            scanWindow.Frame.Title.Text = "🔬 Scan Concluído"
+            
+            local copyButton = scanWindow:AddButton("Copiar Logs", function() 
+                if setclipboard then 
+                    setclipboard(fullLog)
+                    print("✅ Logs copiados para a área de transferência!")
+                    scanWindow.Frame.Title.Text = "✅ Copiado!"
+                end
             end)
-        end
-
-        scanWindow:AddButton("Executar Scan do ReplicatedStorage", doScan)
+            copyButton.Size = UDim2.new(0.8, 0, 0.5, 0)
+            copyButton.Position = UDim2.new(0.1, 0, 0.25, 0)
+        end)
     end
 
     Misc:AddModule("🔬 Scan Estrutural", runStructuralScan, true)
 end
 
-print("✅ Carregamento Finalizado (v24).")
+print("✅ Carregamento Finalizado (v25).")
