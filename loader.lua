@@ -85,7 +85,7 @@ cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
--- A linha do armas.lua foi removida daqui e integrada abaixo
+
 
 -- Etapa 3.5: Adicionar o Módulo Killaura diretamente
 print("\n--- Etapa 3.5: Adicionando Killaura ---")
@@ -109,13 +109,8 @@ do
     local function scanAndPopulateWeapons()
         if not (arsenalWindow and weaponListFrame) then return end
         weaponListFrame:ClearAllChildren()
-        print("[Arsenal] Escaneando Tycoons em busca de armas...")
         local tycoonsFolder = workspace:FindFirstChild("Tycoons")
-        if not tycoonsFolder then
-            warn("[Arsenal] Pasta 'Tycoons' não encontrada no workspace.")
-            return
-        end
-        local weaponsFound = 0
+        if not tycoonsFolder then return end
         for _, tycoon in ipairs(tycoonsFolder:GetChildren()) do
             local purchased = tycoon:FindFirstChild("PurchasedObjects")
             if purchased then
@@ -124,7 +119,6 @@ do
                         local tool = child:FindFirstChildOfClass("Tool")
                         local touchPart = child:FindFirstChild("Touch")
                         if tool and touchPart and touchPart:FindFirstChildOfClass("TouchTransmitter") then
-                            weaponsFound = weaponsFound + 1
                             local weaponButton = Instance.new("TextButton")
                             weaponButton.Name = tool.Name
                             weaponButton.Text = tool.Name
@@ -135,7 +129,6 @@ do
                             weaponButton.Size = UDim2.new(1, -10, 0, 25)
                             weaponButton.Parent = weaponListFrame
                             weaponButton.MouseButton1Click:Connect(function()
-                                print("[Arsenal] Coletando arma: " .. tool.Name)
                                 local rootPart = game:GetService("Players").LocalPlayer.Character and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                                 if rootPart then
                                     pcall(firetouchinterest, touchPart, rootPart, 0)
@@ -149,7 +142,6 @@ do
                 end
             end
         end
-        print("[Arsenal] Escaneamento concluído. " .. weaponsFound .. " armas encontradas.")
     end
 
     local function openArsenalWindow()
@@ -219,8 +211,11 @@ do
         scanAndPopulateWeapons()
     end
 
-    Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
-    print("✅ Módulo de Arsenal integrado com sucesso.")
+    -- MUDANÇA CRÍTICA AQUI: Removido o 'true' para testar a hipótese de bug
+    Misc:AddModule("🔫 Arsenal", function(enabled) 
+        openArsenalWindow() 
+    end)
+    print("✅ Módulo de Arsenal integrado como INTERRUPTOR.")
 end
 
 -- Etapa 4: Lógica do Killaura (integrada)
