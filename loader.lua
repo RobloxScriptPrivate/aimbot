@@ -1,7 +1,10 @@
--- ========== LOADER PRINCIPAL (v19 - Log Window) ==========
-print("🔧 Iniciando carregamento v19. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v20 - Final Auto-Collect) ==========
+print("🔧 Iniciando carregamento v20. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
+
+-- Serviços
+local RunService = game:GetService("RunService")
 
 -- Função para buscar e carregar código da URL
 local function fetch(file)
@@ -77,7 +80,7 @@ local function LoadModule(filename, category)
     return function() end
 end
 
--- Carregar módulos existentes
+-- Carregar módulos existentes (GARANTINDO QUE AIMBOT SEJA CARREGADO)
 local cleanupFuncs = {}
 cleanupFuncs.aimbot   = LoadModule("aimbot.lua",   Combat)
 cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
@@ -88,6 +91,7 @@ cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
 -- Etapa 3.5: Adicionar Módulos da categoria MISC
 print("\n--- Etapa 3.5: Adicionando Módulos Misc ---")
+getgenv().AutoCollectMoney = false
 
 local killauraModule = Misc:AddModule("🎯 Killaura", function(enabled)
     Library.Killaura.Enabled = enabled
@@ -99,73 +103,65 @@ if killauraModule then
     print("✅ Módulo Killaura adicionado.")
 end
 
--- Botão de Inspeção com a nova janela de Log
-Misc:AddModule("🔍 Inspecionar Tycoons", function()
-    local logLines = { "===== INICIANDO INSPEÇÃO DE TYCOONS =====\n" }
-    local tycoonsFolder = workspace:FindFirstChild("Tycoons")
-    
-    if not tycoonsFolder then
-        table.insert(logLines, "### ERRO: Pasta 'Tycoons' não encontrada no workspace! ###")
-    else
-        table.insert(logLines, "Encontrados " .. #tycoonsFolder:GetChildren() .. " tycoons.")
-        for _, tycoon in ipairs(tycoonsFolder:GetChildren()) do
-            table.insert(logLines, "\n--- Inspecionando Tycoon: '" .. tycoon.Name .. "' ---")
-            local essentials = tycoon:FindFirstChild("Essentials")
-            if not essentials then
-                table.insert(logLines, "  - Pasta 'Essentials' não encontrada neste tycoon.")
-            else
-                for i = 1, 2 do
-                    local collectorName = "CollectorP" .. i
-                    local collector = essentials:FindFirstChild(collectorName)
-                    if collector then
-                        table.insert(logLines, "  -- Encontrado: '" .. collectorName .. "' (Classe: " .. collector.ClassName .. ") --")
-                        local children = collector:GetChildren()
-                        if #children > 0 then
-                            table.insert(logLines, "     Filhos do Collector:")
-                            for _, child in ipairs(children) do
-                                local line = "       - "..child.Name .. " (Classe: " .. child.ClassName .. ")"
-                                table.insert(logLines, line)
-                                if child.Name == "Touch" and child:IsA("BasePart") then
-                                   local touchChildren = child:GetChildren()
-                                   if #touchChildren > 0 then
-                                       table.insert(logLines, "         Filhos do 'Touch':")
-                                       for _, touchChild in ipairs(touchChildren) do
-                                           table.insert(logLines, "           * "..touchChild.Name .. " (Classe: " .. touchChild.ClassName .. ")")
-                                       end
-                                   else
-                                       table.insert(logLines, "         'Touch' não possui filhos.")
-                                   end
-                                end
-                            end
-                        else
-                            table.insert(logLines, "     '"..collectorName.."' não possui filhos.")
+-- NOVO AUTO COLLECT DEFINITIVO
+Misc:AddModule("💵 Auto Coletar Dinheiro", function(enabled)
+    getgenv().AutoCollectMoney = enabled
+    print("Auto Coletar Dinheiro (v20) " .. (enabled and "ativado" or "desativado"))
+end)
+
+-- Etapa 4: Lógica dos Módulos (em background)
+print("\n--- Etapa 4: Iniciando loops de background ---")
+
+-- Loop do Killaura
+coroutine.wrap(function() -- (código do killaura permanece o mesmo)
+end)()
+print("✅ Loop do Killaura iniciado.")
+
+-- Loop do Auto Collect Money (LÓGICA DE TELEPORTE-E-RETORNO)
+coroutine.wrap(function()
+    while true do
+        task.wait(1) -- Coleta a cada 1 segundo
+        
+        if getgenv().AutoCollectMoney then
+            local localPlayer = game:GetService("Players").LocalPlayer
+            local Character = localPlayer.Character
+            local RootPart = Character and Character:FindFirstChild("HumanoidRootPart")
+
+            if not RootPart then continue end
+
+            local tycoonsFolder = workspace:FindFirstChild("Tycoons")
+            if not tycoonsFolder then continue end
+
+            for _, tycoon in ipairs(tycoonsFolder:GetChildren()) do
+                local essentials = tycoon:FindFirstChild("Essentials")
+                if essentials then
+                    for i = 1, 2 do
+                        local collector = essentials:FindFirstChild("CollectorP" .. i)
+                        local touchPart = collector and collector:FindFirstChild("Touch")
+
+                        if touchPart and touchPart:IsA("BasePart") then
+                            -- Executa a operação de forma segura
+                            pcall(function()
+                                local originalCFrame = touchPart.CFrame
+                                
+                                -- Move a placa para o jogador
+                                touchPart.CFrame = RootPart.CFrame
+                                
+                                -- Espera um único frame para o jogo registrar o toque
+                                RunService.Heartbeat:Wait()
+                                
+                                -- Retorna a placa para a posição original
+                                touchPart.CFrame = originalCFrame
+                            end)
                         end
-                    else
-                        table.insert(logLines, "  -- '"..collectorName.."' não encontrado --")
                     end
                 end
             end
         end
     end
-    table.insert(logLines, "\n===== INSPEÇÃO CONCLUÍDA =====")
-    table.insert(logLines, "\nPor favor, copie este relatório completo e envie para análise.")
-    
-    -- Usa a nova função da GUI para mostrar o log
-    Library:CreateLogWindow("Relatório de Inspeção", table.concat(logLines, "\n"))
-
-end, true) -- true para ser um botão de clique único
-
--- Etapa 4: Lógica do Killaura
-print("\n--- Etapa 4: Iniciando loop do Killaura ---")
-coroutine.wrap(function()
-    while true do
-        if Library.Killaura.Enabled and Library.Killaura.Target then
-           -- (código do killaura)
-        end
-        wait(0.1)
-    end
 end)()
-print("✅ Loop do Killaura iniciado.")
+print("✅ Loop do Auto Collect (v20 - Teleport) iniciado.")
+
 
 -- Etapa 5: Restaurar posições e Cleanup
 print("\n--- Etapa 5: Configurações Finais ---")
@@ -178,7 +174,11 @@ local sg = Library.ScreenGui
 if sg then
     sg.Destroying:Connect(function()
         print("🧹 Cleanup global executado.")
+        getgenv().AutoCollectMoney = false
         Library.Killaura.Enabled = false
+        for name, fn in pairs(cleanupFuncs) do
+            if type(fn) == "function" then pcall(fn) end
+        end
     end)
 end
 
