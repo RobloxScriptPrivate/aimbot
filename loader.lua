@@ -77,15 +77,17 @@ local function LoadModule(filename, category)
     return function() end
 end
 
--- Carregar módulos existentes
+-- Carregar módulos existentes (TESTE: ARMAS PRIMEIRO)
 local cleanupFuncs = {}
+cleanupFuncs.armas    = LoadModule("armas.lua",    Misc) -- MOVIDO PARA CIMA
+
 cleanupFuncs.aimbot   = LoadModule("aimbot.lua",   Combat)
 cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
 cleanupFuncs.esp      = LoadModule("esp.lua",      Visual)
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
-cleanupFuncs.armas    = LoadModule("armas.lua",    Misc)
+
 
 -- Etapa 3.5: Adicionar o Módulo Killaura diretamente
 print("\n--- Etapa 3.5: Adicionando Killaura ---")
