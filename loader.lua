@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v23 - Arsenal Reborn) ==========
-print("🔧 Iniciando carregamento v23. Implementando o fluxo de trabalho do Arsenal correto.")
+-- ========== LOADER PRINCIPAL (v24 - Diagnostic Scan Module) ==========
+print("🔧 Iniciando carregamento v24. Arsenal substituído por ferramenta de Scan Estrutural.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -60,94 +60,52 @@ do
 end
 
 --[[
-    Módulo Arsenal (v3.0 - Interface de Navegação + Sua Lógica)
+    Módulo de Scan Estrutural (v1 - ReplicatedStorage)
+    Substitui o Arsenal para fins de diagnóstico, como solicitado.
 ]]
 do
-    local function openArsenalWindow()
-        local arsenalWindow = Library:CreateWindow("🔫 Arsenal do Mapa", UDim2.new(0, 400, 0, 500))
-        local weaponListFrame -- Declarado aqui para ser acessível por ambas as funções
+    local function runStructuralScan()
+        local scanWindow = Library:CreateWindow("🔬 Scan Estrutural", UDim2.new(0.5, -200, 0.5, -200), 400, 400)
+        scanWindow:AddLabel("A saída será enviada para o console (F9)", true)
 
-        local toolGiverNames = {
-            "ToolGiver1P1", "ToolGiver1P2", "ToolGiver2P1", "ToolGiver2P2", "ToolGiver3P1", "ToolGiver3P2",
-            "ToolGiver4P1", "ToolGiver4P2", "ToolGiver5", "ToolGiver5P1", "ToolGiver5P2", "ToolGiver6P1",
-            "ToolGiver6P2", "ToolGiver7P1", "ToolGiver7P2", "ToolGiver8P1", "ToolGiver8P2", "ToolGiver9P1",
-            "ToolGiver9P2", "ToolGiver10P1", "ToolGiver10P2", "ToolGiver11P1", "ToolGiver11P2", "ToolGiver12P1",
-            "ToolGiver12P2", "ToolGiver13P1", "ToolGiver13P2", "ToolGiver14P1", "ToolGiver14P2", "ToolGiver100",
-            "DToolGiver1P1", "DToolGiver1P2"
-        }
+        local function doScan()
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local output = {}
 
-        -- SEÇÃO: NAVEGADOR DE TYCOONS
-        arsenalWindow:AddLabel("1. Teleporte para uma base:", false)
-        local navigatorFrame = Instance.new("Frame"); navigatorFrame.Size = UDim2.new(0.9, 0, 0, 70); navigatorFrame.BackgroundTransparency = 1; navigatorFrame.Parent = arsenalWindow.Content
-        local navLayout = Instance.new("UIGridLayout", navigatorFrame); navLayout.CellPadding = UDim2.new(0, 5, 0, 5); navLayout.CellSize = UDim2.new(0, 110, 0, 30)
-        
-        local TycoonsFolder = workspace:FindFirstChild("Tycoons")
-        if TycoonsFolder then
-            for _, tycoon in ipairs(TycoonsFolder:GetChildren()) do
-                if tycoon:IsA("Model") then
-                    local btn = arsenalWindow:AddButton("TP para " .. tycoon.Name)
-                    btn.Parent = navigatorFrame -- Move o botão para o frame com grid
-                    btn.MouseButton1Click:Connect(function()
-                        local playerChar = game.Players.LocalPlayer.Character
-                        local rootPart = playerChar and playerChar:FindFirstChild("HumanoidRootPart")
-                        local targetPart = tycoon.PrimaryPart or tycoon:FindFirstChildWhichIsA("BasePart")
-                        if rootPart and targetPart then
-                            rootPart.CFrame = targetPart.CFrame * CFrame.new(0, 5, 0)
-                        end
-                    end)
-                end
-            end
-        end
-
-        -- SEÇÃO: LISTA DE ARMAS PRÓXIMAS
-        arsenalWindow:AddLabel("2. Atualize e pegue as armas:", false)
-        
-        local function scanForNearbyWeapons()
-            if not weaponListFrame then return end
-            weaponListFrame:ClearAllChildren()
-            local listLayout = Instance.new("UIListLayout", weaponListFrame); listLayout.Padding = UDim.new(0, 5)
-            local foundCount = 0
-
-            local character = game.Players.LocalPlayer.Character
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-            if not rootPart then return end
-
-            for _, tycoon in ipairs(TycoonsFolder:GetChildren()) do
-                local purchased = tycoon:FindFirstChild("PurchasedObjects")
-                local tycoonPart = tycoon.PrimaryPart or tycoon:FindFirstChildWhichIsA("BasePart")
-                if purchased and tycoonPart and (tycoonPart.Position - rootPart.Position).Magnitude < 300 then -- Apenas escaneia tycoons próximos
-                    for _, giverName in ipairs(toolGiverNames) do
-                        local toolGiver = purchased:FindFirstChild(giverName)
-                        if toolGiver then
-                            local touchPart = toolGiver:FindFirstChild("Touch")
-                            if touchPart and touchPart:IsA("BasePart") and touchPart:FindFirstChildOfClass("TouchTransmitter") then
-                                foundCount = foundCount + 1
-                                local card = Instance.new("Frame"); card.Size = UDim2.new(0.95, 0, 0, 40); card.BackgroundColor3 = Color3.fromRGB(50, 50, 50); card.Parent = weaponListFrame; Instance.new("UICorner", card)
-                                local title = Instance.new("TextLabel"); title.Size = UDim2.new(1, -110, 1, 0); title.Text = "  " .. toolGiver.Name; title.TextColor3 = Color3.fromRGB(240, 240, 240); title.Font = Enum.Font.SourceSansBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left; title.BackgroundTransparency = 1; title.Parent = card
-                                local pegarBtn = Instance.new("TextButton"); pegarBtn.Size = UDim2.new(0, 100, 0.8, 0); pegarBtn.Position = UDim2.new(1, -105, 0.1, 0); pegarBtn.Text = "✔️ Pegar"; pegarBtn.BackgroundColor3 = Color3.fromRGB(60, 120, 220); pegarBtn.TextColor3 = Color3.fromRGB(255, 255, 255); pegarBtn.Font = Enum.Font.SourceSansBold; pegarBtn.Parent = card; Instance.new("UICorner", pegarBtn)
-                                pegarBtn.MouseButton1Click:Connect(function()
-                                    pcall(function() 
-                                        touchPart.Anchored = false
-                                        touchPart.CFrame = rootPart.CFrame
-                                    end)
-                                end)
-                            end
-                        end
+            local function scan(instance, depth)
+                pcall(function()
+                    local indent = string.rep("  ", depth)
+                    table.insert(output, indent .. "[" .. instance.ClassName .. "] " .. instance.Name)
+                    
+                    for _, child in ipairs(instance:GetChildren()) do
+                        scan(child, depth + 1)
                     end
-                end
+                end)
             end
-             if foundCount == 0 then
-                local lbl = arsenalWindow:AddLabel("Nenhuma arma encontrada nas proximidades.", true)
-                lbl.Parent = weaponListFrame
-            end
+
+            task.spawn(function()
+                print("--- INICIANDO SCAN DO REPLICATEDSTORAGE ---")
+                table.insert(output, "--- INICIANDO SCAN DO REPLICATEDSTORAGE ---")
+                
+                scan(ReplicatedStorage, 1)
+
+                print("--- SCAN FINALIZADO ---")
+                table.insert(output, "--- SCAN FINALIZADO ---")
+                
+                local fullLog = table.concat(output, "\n")
+                scanWindow:AddButton("Copiar Logs para Clipboard", function() 
+                    if setclipboard then 
+                        setclipboard(fullLog)
+                        print("✅ Logs copiados para a área de transferência!")
+                    end
+                end)
+            end)
         end
 
-        arsenalWindow:AddButton("🔄 Atualizar Lista de Armas Próximas", scanForNearbyWeapons)
-        weaponListFrame = arsenalWindow:AddScrollableList()
-        weaponListFrame.Size = UDim2.new(0.95, 0, 0.35, 0)
+        scanWindow:AddButton("Executar Scan do ReplicatedStorage", doScan)
     end
 
-    Misc:AddModule("🔫 Arsenal do Mapa", openArsenalWindow, true)
+    Misc:AddModule("🔬 Scan Estrutural", runStructuralScan, true)
 end
 
-print("✅ Carregamento Finalizado (v23).")
+print("✅ Carregamento Finalizado (v24).")
