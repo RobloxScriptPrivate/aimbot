@@ -81,22 +81,25 @@ end
 local cleanupFuncs = {}
 cleanupFuncs.aimbot   = LoadModule("aimbot.lua",   Combat)
 cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
-cleanupFuncs.esp      = LoadModule("esp.lua",      Visual) -- REATIVADO CONFORME SOLICITADO
+cleanupFuncs.esp      = LoadModule("esp.lua",      Visual) -- REATIVADO
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
 
--- Etapa 3.5: Adicionar o Módulo Arsenal (MÉTODO CORRETO)
-print("\n--- Etapa 3.5: Adicionando Arsenal (Reconstruído) ---")
+-- Etapa 3.5: Adicionar o Módulo Arsenal (Versão Final Corrigida)
+print("\n--- Etapa 3.5: Adicionando Arsenal (Final) ---")
 do
     local arsenalWindow
 
-    local function scanAndPopulateWeapons(window)
-        if not window then return end
-        -- Limpa a lista antiga, se a função da lib não fizer isso
-        for _, c in ipairs(window.Container:GetChildren()) do
-            if c.Name ~= "UIPadding" and c.Name ~= "UIListLayout" then c:Destroy() end
+    local function scanAndPopulateWeapons()
+        if not arsenalWindow or not arsenalWindow.Frame then return end
+        
+        -- Limpa apenas os botões de armas, mantendo o botão de atualizar
+        for _, child in ipairs(arsenalWindow.Container:GetChildren()) do
+            if child:IsA("TextButton") and child.Name ~= "Atualizar Lista" then
+                child:Destroy()
+            end
         end
 
         print("[Arsenal] Escaneando Tycoons em busca de armas...")
@@ -117,16 +120,17 @@ do
                         if tool and touchPart and touchPart:FindFirstChildOfClass("TouchTransmitter") then
                             weaponsFound = weaponsFound + 1
                             
-                            -- Usa a função da biblioteca para criar um botão
-                            local btn = window:AddButton(tool.Name, function()
+                            -- ADICIONA O BOTÃO USANDO A FUNÇÃO DA BIBLIOTECA
+                            local weaponButton = arsenalWindow:AddButton(tool.Name, function()
                                 print("[Arsenal] Coletando arma: " .. tool.Name)
                                 local rootPart = game:GetService("Players").LocalPlayer.Character and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                                 if rootPart then
                                     pcall(firetouchinterest, touchPart, rootPart, 0)
                                     pcall(firetouchinterest, touchPart, rootPart, 1)
-                                    -- A biblioteca pode não suportar mudar o texto, então avisamos no log
+                                    -- A biblioteca pode não suportar mudar o texto do botão, mas a coleta funcionará
                                 end
                             end)
+                            weaponButton.Name = tool.Name -- Nomeia o botão para a função de limpeza
                         end
                     end
                 end
@@ -136,27 +140,25 @@ do
     end
 
     local function openArsenalWindow()
-        -- Se a janela já existe, a lib cuida de mostrá-la
-        if not arsenalWindow or not arsenalWindow.Frame then 
+        if not arsenalWindow or not arsenalWindow.Frame.Parent then 
             arsenalWindow = Library:CreateWindow("Arsenal do Mapa", UDim2.new(0, 300, 0, 400), UDim2.new(0.5, -150, 0.5, -200))
-            -- CORREÇÃO: Aumenta o tamanho da fonte do título
             if arsenalWindow.Title then
                 arsenalWindow.Title.Font = Enum.Font.SourceSansBold
                 arsenalWindow.Title.TextSize = 16
             end
 
-            -- Adiciona um botão de Atualizar dentro da nova janela
-            arsenalWindow:AddButton("Atualizar Lista", function()
-                scanAndPopulateWeapons(arsenalWindow)
-            end)
+            -- O botão de atualizar é nomeado para que não seja apagado
+            local refreshBtn = arsenalWindow:AddButton("Atualizar Lista", scanAndPopulateWeapons)
+            refreshBtn.Name = "Atualizar Lista"
 
-            -- Popula a lista na primeira vez
-            scanAndPopulateWeapons(arsenalWindow)
+            task.wait(0.1)
+            scanAndPopulateWeapons()
         end
+        arsenalWindow.Frame.Visible = not arsenalWindow.Frame.Visible
     end
 
-    Misc:AddModule("🔫 Arsenal", openArsenalWindow, true) -- Usando o modo Trigger (true) que deve funcionar com a lib
-    print("✅ Módulo de Arsenal integrado usando a biblioteca da GUI.")
+    Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
+    print("✅ Módulo de Arsenal finalizado e integrado.")
 end
 
 
@@ -229,7 +231,7 @@ local sg = Library.ScreenGui
 if sg then
     sg.Destroying:Connect(function()
         print("🧹 ScreenGui destruído — executando cleanup de todos os módulos...")
-        for name, fn in pairs(cleanupFuns) do
+        for name, fn in pairs(cleanupFuncs) do
             if type(fn) == "function" then
                 pcall(fn)
             end
