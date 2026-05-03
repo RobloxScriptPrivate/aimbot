@@ -46,6 +46,7 @@ local Combat   = Library:CreateCategory("⚔️ Combat",    UDim2.new(0, startX,
 local Visual   = Library:CreateCategory("👁️ Visual",    UDim2.new(0, startX + catWidth + spacing, 0, startY))
 local Movement = Library:CreateCategory("🏃 Movimento", UDim2.new(0, startX + (catWidth + spacing) * 2, 0, startY))
 local Teleport = Library:CreateCategory("🌌 Teleporte", UDim2.new(0, startX + (catWidth + spacing) * 3, 0, startY))
+local Misc = Library:CreateCategory("✨ Misc", UDim2.new(0, startX + (catWidth + spacing) * 4, 0, startY))
 print("✅ Todas as categorias criadas.")
 
 
@@ -76,6 +77,31 @@ local function LoadModule(filename, category)
     return function() end
 end
 
+local function LoadLocalModule(filename, category)
+    print("\n🔧 Carregando Módulo Local: '"..filename.."'...")
+    if not category then
+        warn("🔥🔥 ERRO: A categoria para '"..filename.."' é NULA.")
+        return function() end
+    end
+    local code = readfile(filename)
+    if code then
+        local func, compile_err = loadstring(code)
+        if func then
+            local success, result = pcall(func, Library, category)
+            if success then
+                print("✅ Módulo '"..filename.."' executado com sucesso.")
+                return result
+            else
+                warn("🔥🔥 ERRO AO EXECUTAR '"..filename.."': ", result)
+            end
+        else
+            warn("🔥🔥 ERRO DE SINTAXE em '"..filename.."': ", compile_err)
+        end
+    end
+    return function() end
+end
+
+
 local cleanupFuncs = {}
 cleanupFuncs.aimbot   = LoadModule("aimbot.lua",   Combat)
 cleanupFuncs.hitbox   = LoadModule("hitbox.lua",   Combat)
@@ -83,6 +109,7 @@ cleanupFuncs.esp      = LoadModule("esp.lua",      Visual)
 cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
+cleanupFuncs.killaura = LoadLocalModule("killaura.lua", Misc)
 
 
 -- Etapa 4: Restaura posicoes e estado das categorias APOS todos os modulos
