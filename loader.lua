@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v17 - Killaura & Aimbot Fix) ==========
-print("🔧 Iniciando carregamento v17. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v18 - Killaura & Aimbot Restored) ==========
+print("🔧 Iniciando carregamento v18. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -37,14 +37,59 @@ local function LoadModule(filename, category)
     end
 end
 
--- Carregar módulos (Aimbot e Killaura restaurados)
+-- Carregar módulos externos
 LoadModule("aimbot.lua",   Combat)
-LoadModule("killaura.lua", Combat) -- <<<< LINHA DO KILLAURA ADICIONADA DE VOLTA
 LoadModule("hitbox.lua",   Combat)
 LoadModule("esp.lua",      Visual)
 LoadModule("nametag.lua",  Visual)
 LoadModule("movement.lua", Movement)
 LoadModule("teleport.lua", Teleport)
+
+--[[
+    KILLAURA INTEGRADO (RESTAURADO)
+]]
+do
+    local KillauraModule = Combat:AddModule("🎯 Killaura", function(state)
+        Library.Killaura.Enabled = state
+    end, false)
+
+    KillauraModule:AddSlider("Distância", 5, 50, Library.Killaura.Distance, function(val)
+        Library.Killaura.Distance = val
+    end)
+
+    local function attackTarget(targetChar)
+        local char = game.Players.LocalPlayer.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if not tool or not tool:FindFirstChild("Handle") then return end
+        local targetPart = targetChar:FindFirstChild("HumanoidRootPart") or targetChar:FindFirstChildWhichIsA("BasePart")
+        if not targetPart then return end
+        pcall(function() 
+            firetouchinterest(tool.Handle, targetPart, 0)
+            firetouchinterest(tool.Handle, targetPart, 1)
+        end)
+    end
+
+    game:GetService("RunService").Heartbeat:Connect(function()
+        if not Library.Killaura.Enabled or not Library.Killaura.Target then return end
+        
+        local target = Library.Killaura.Target
+        local localChar = game.Players.LocalPlayer.Character
+
+        if target and target.Character and localChar and localChar:FindFirstChild("HumanoidRootPart") then
+            local hum = target.Character:FindFirstChildOfClass("Humanoid")
+            local root = target.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and root then
+                local dist = (root.Position - localChar.HumanoidRootPart.Position).Magnitude
+                if dist <= Library.Killaura.Distance then
+                    attackTarget(target.Character)
+                end
+            end
+        end
+    end)
+    print("✅ Killaura (Integrado) carregado!")
+end
+
 
 -- Módulo de Scanner de Mapa
 do
@@ -136,4 +181,4 @@ do
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
 end
 
-print("✅ Carregamento Finalizado (v17).")
+print("✅ Carregamento Finalizado (v18).")

@@ -1,4 +1,4 @@
--- Manus GUI Library V7.4 (Framework & Original UI Restored)
+-- Manus GUI Library V7.5 (Overlay & Target Fix)
 local Library = {}
 
 -- Serviços
@@ -21,7 +21,7 @@ Library.Whitelist = {}
 Library.Killaura = {
     Target = nil,
     Enabled = false,
-    Distance = 10
+    Distance = 15
 }
 
 -- COOLDOWN DE TELEPORTE
@@ -81,7 +81,7 @@ end
 --[[
     2. INICIALIZAÇÃO DA GUI
 ]]
-local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_4"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+local ScreenGui = Instance.new("ScreenGui"); ScreenGui.Name = "ManusGuiLib_V7_5"; ScreenGui.ResetOnSpawn = false; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 if not pcall(function() ScreenGui.Parent = CoreGui end) then ScreenGui.Parent = player:WaitForChild("PlayerGui") end
 Library.ScreenGui = ScreenGui
 
@@ -166,23 +166,37 @@ function Library:CreateCategory(n,p)
 end
 
 --[[
-    5. OVERLAY & FEATURES
+    5. OVERLAY & FEATURES (Fixed & Resized)
 ]]
 function Library:CreateOverlay(id, title, color)
-    if Library.Overlays[id] then return Library.Overlays[id] end
-    local o=Instance.new("Frame"); o.Size=UDim2.new(0,220,0,80); o.BackgroundColor3=Color3.fromRGB(20,20,25); o.BackgroundTransparency=0.2; o.BorderSizePixel=0; o.Visible=false; o.Parent=ScreenGui; Instance.new("UICorner",o).CornerRadius=UDim.new(0,8)
-    local b=Instance.new("Frame"); b.Size=UDim2.new(1,0,0,2); b.BackgroundColor3=color or Color3.fromRGB(0,150,255); b.BorderSizePixel=0; b.Parent=o; Instance.new("UICorner",b)
-    local t=Instance.new("TextLabel"); t.Size=UDim2.new(1,-10,0,20); t.Position=UDim2.new(0,10,0,5); t.Text=title; t.TextColor3=color or Color3.fromRGB(0,150,255); t.Font=Enum.Font.SourceSansBold; t.TextSize=12; t.BackgroundTransparency=1; t.TextXAlignment=Enum.TextXAlignment.Left; t.Parent=o
-    local l=Instance.new("TextLabel"); l.Size=UDim2.new(1,-20,0,40); l.Position=UDim2.new(0,10,0,30); l.Text="Aguardando..."; l.TextColor3=Color3.fromRGB(255,255,255); l.Font=Enum.Font.SourceSans; l.TextSize=14; l.BackgroundTransparency=1; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=o
-    local overlayObj = {Frame = o, Label = l}
-    function overlayObj:SetText(txt) l.Text = txt end
+    if Library.Overlays[id] and Library.Overlays[id].Frame and Library.Overlays[id].Frame.Parent then 
+        return Library.Overlays[id] 
+    end
+    
+    local overlayObj = {}
+    local o = Instance.new("Frame"); o.Size=UDim2.new(0,250,0,90); o.BackgroundColor3=Color3.fromRGB(20,20,25); o.BackgroundTransparency=0.2; o.BorderSizePixel=0; o.Visible=false; o.Parent=ScreenGui; Instance.new("UICorner",o).CornerRadius=UDim.new(0,8)
+    local b=Instance.new("Frame"); b.Size=UDim2.new(1,0,0,3); b.BackgroundColor3=color or Color3.fromRGB(0,150,255); b.BorderSizePixel=0; b.Parent=o; Instance.new("UICorner",b)
+    local t=Instance.new("TextLabel"); t.Size=UDim2.new(1,-10,0,25); t.Position=UDim2.new(0,10,0,5); t.Text=title; t.TextColor3=color or Color3.fromRGB(0,150,255); t.Font=Enum.Font.SourceSansBold; t.TextSize=16; t.BackgroundTransparency=1; t.TextXAlignment=Enum.TextXAlignment.Left; t.Parent=o
+    local l=Instance.new("TextLabel"); l.Size=UDim2.new(1,-20,0,50); l.Position=UDim2.new(0,10,0,35); l.Text="Aguardando..."; l.TextColor3=Color3.fromRGB(255,255,255); l.Font=Enum.Font.SourceSans; l.TextSize=15; l.TextWrapped=true; l.BackgroundTransparency=1; l.TextXAlignment=Enum.TextXAlignment.Left; l.Parent=o
+    
+    overlayObj.Frame = o
+    overlayObj.Label = l
+
     function overlayObj:SetVisible(v) o.Visible = v end
+    function overlayObj:SetPosition(p) o.Position = p end
+    function overlayObj:Update(targetPlayer, distance, status)
+        if not targetPlayer or not targetPlayer.Character then self:SetVisible(false); return end
+        local dist = math.floor(distance or 0)
+        self.Label.Text = string.format("%s\nDistância: %sm\nStatus: %s", targetPlayer.DisplayName, dist, status or "n/a")
+        self:SetVisible(true)
+    end
+    
     Library.Overlays[id] = overlayObj
     return overlayObj
 end
 
 --[[
-    6. JANELAS DE CONFIGURAÇÃO (RESTAURADAS COM ABAS)
+    6. JANELAS DE CONFIGURAÇÃO (Killaura Target Fix)
 ]]
 function Library:OpenWhitelistWindow()
     local window = Library:CreateWindow("🛡️ Whitelist & Teleporte", UDim2.new(0, 400, 0, 350))
@@ -223,13 +237,25 @@ function Library:OpenKillauraTargetWindow()
     scroll.Size = UDim2.new(0.95, 0, 0.8, 0)
     local function refresh()
         scroll:ClearAllChildren()
-        Instance.new("UIListLayout", scroll).Padding = UDim.new(0,5)
+        local layout = Instance.new("UIListLayout", scroll); layout.Padding = UDim.new(0,5)
+        
         for _, p in ipairs(Players:GetPlayers()) do
             if p == player then continue end
+            local isTarget = (Library.Killaura.Target == p)
+            
             local pF=Instance.new("Frame"); pF.Size=UDim2.new(0.95,0,0,35); pF.BackgroundTransparency=1; pF.Parent=scroll
             local nL=Instance.new("TextLabel"); nL.Size=UDim2.new(1,-60,1,0); nL.Text="  "..p.DisplayName; nL.TextColor3=Color3.fromRGB(220,220,220); nL.Font=Enum.Font.SourceSans; nL.TextSize=14; nL.TextXAlignment=Enum.TextXAlignment.Left; nL.BackgroundTransparency=1; nL.Parent=pF
-            local sB=Instance.new("TextButton"); sB.Size=UDim2.new(0,50,0.8,0); sB.Position=UDim2.new(1,-55,0.1,0); sB.BackgroundColor3=(Library.Killaura.Target==p) and Color3.fromRGB(0,180,80) or Color3.fromRGB(50,50,50); sB.Text=(Library.Killaura.Target==p) and "ALVO" or "Sel."; sB.TextColor3=Color3.fromRGB(255,255,255); sB.Font=Enum.Font.SourceSansBold; sB.TextSize=12; sB.Parent=pF; Instance.new("UICorner",sB)
-            sB.MouseButton1Click:Connect(function() Library.Killaura.Target=p; refresh() end)
+            local sB=Instance.new("TextButton"); sB.Size=UDim2.new(0,50,0.8,0); sB.Position=UDim2.new(1,-55,0.1,0); 
+            sB.BackgroundColor3 = isTarget and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(50,50,50); 
+            sB.Text = isTarget and "LIMPAR" or "Sel."; 
+            sB.TextColor3=Color3.fromRGB(255,255,255); sB.Font=Enum.Font.SourceSansBold; sB.TextSize=12; sB.Parent=pF; Instance.new("UICorner",sB)
+            
+            sB.MouseButton1Click:Connect(function() 
+                if isTarget then Library.Killaura.Target = nil -- Se já for o alvo, limpa.
+                else Library.Killaura.Target = p -- Senão, define como alvo.
+                end
+                refresh() 
+            end)
         end
     end
     refresh()
