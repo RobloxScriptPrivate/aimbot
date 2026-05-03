@@ -1,5 +1,5 @@
--- ========== LOADER PRINCIPAL (v15 - Killaura Integrado) ==========
-print("🔧 Iniciando carregamento v15. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v16 - Auto Collect) ==========
+print("🔧 Iniciando carregamento v16. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
@@ -86,21 +86,31 @@ cleanupFuncs.nametag  = LoadModule("nametag.lua",  Visual)
 cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
--- Etapa 3.5: Adicionar o Módulo Killaura diretamente
-print("\n--- Etapa 3.5: Adicionando Killaura ---")
+-- Etapa 3.5: Adicionar Módulos da categoria MISC
+print("\n--- Etapa 3.5: Adicionando Módulos Misc ---")
+getgenv().AutoCollectMoney = false
+
 local killauraModule = Misc:AddModule("🎯 Killaura", function(enabled)
     Library.Killaura.Enabled = enabled
 end)
-
 if killauraModule then
     killauraModule:AddSlider("Distância: ", 5, 50, Library.Killaura.Distance, function(val)
         Library.Killaura.Distance = val
     end)
-    print("✅ Módulo Killaura adicionado à categoria Misc.")
+    print("✅ Módulo Killaura adicionado.")
 end
 
--- Etapa 4: Lógica do Killaura (integrada)
-print("\n--- Etapa 4: Iniciando loop do Killaura ---")
+local autoCollectModule = Misc:AddModule("💵 Auto Collect", function(enabled)
+    getgenv().AutoCollectMoney = enabled
+    print("Auto Collect " .. (enabled and "ativado" or "desativado"))
+end)
+print("✅ Módulo Auto Collect adicionado.")
+
+
+-- Etapa 4: Lógica dos Módulos (em background)
+print("\n--- Etapa 4: Iniciando loops de background ---")
+
+-- Loop do Killaura
 local function attackTarget(targetChar)
     local char = game:GetService("Players").LocalPlayer.Character
     if not char then return end
@@ -115,8 +125,7 @@ local function attackTarget(targetChar)
     firetouchinterest(tool.Handle, targetPart, 1)
 end
 
-local killauraLoop
-killauraLoop = coroutine.wrap(function()
+coroutine.wrap(function()
     while true do
         if Library.Killaura.Enabled and Library.Killaura.Target then
             local targetPlayer = Library.Killaura.Target
@@ -130,14 +139,45 @@ killauraLoop = coroutine.wrap(function()
                         attackTarget(targetPlayer.Character)
                     end
                 else
-                    Library.Killaura.Target = nil -- Limpa o alvo se ele não for mais válido
+                    Library.Killaura.Target = nil
                 end
             end
         end
         wait(0.1)
     end
-end)
-killauraLoop()
+end)()
+print("✅ Loop do Killaura iniciado.")
+
+-- Loop do Auto Collect Money
+coroutine.wrap(function()
+    while true do
+        if getgenv().AutoCollectMoney then
+            local Character = game:GetService("Players").LocalPlayer.Character
+            if Character and Character:FindFirstChild("HumanoidRootPart") then
+                local RootPart = Character.HumanoidRootPart
+                 for _, tycoon in ipairs(workspace.Tycoons:GetChildren()) do
+                    local essentials = tycoon:FindFirstChild("Essentials")
+                    if essentials then
+                        local collectorP1 = essentials:FindFirstChild("CollectorP1")
+                        local collectorP2 = essentials:FindFirstChild("CollectorP2")
+
+                        if collectorP1 and collectorP1:FindFirstChild("Touch") then
+                            firetouchinterest(collectorP1.Touch, RootPart, 0)
+                            firetouchinterest(collectorP1.Touch, RootPart, 1)
+                        end
+
+                        if collectorP2 and collectorP2:FindFirstChild("Touch") then
+                            firetouchinterest(collectorP2.Touch, RootPart, 0)
+                            firetouchinterest(collectorP2.Touch, RootPart, 1)
+                        end
+                    end
+                end
+            end
+        end
+        wait(1) -- Espera 1 segundo para não sobrecarregar
+    end
+end)()
+print("✅ Loop do Auto Collect iniciado.")
 
 
 -- Etapa 5: Restaurar posições das categorias
@@ -154,13 +194,12 @@ local sg = Library.ScreenGui
 if sg then
     sg.Destroying:Connect(function()
         print("🧹 ScreenGui destruído — executando cleanup de todos os módulos...")
+        getgenv().AutoCollectMoney = false
+        Library.Killaura.Enabled = false
         for name, fn in pairs(cleanupFuncs) do
             if type(fn) == "function" then
                 pcall(fn)
             end
-        end
-        if killauraLoop and coroutine.status(killauraLoop) ~= "dead" then
-            -- Não há como "matar" uma coroutine de fora, mas podemos reestruturar se necessário
         end
         print("✅ Cleanup global concluído.")
     end)
