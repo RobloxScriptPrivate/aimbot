@@ -1,28 +1,38 @@
--- ========== LOADER PRINCIPAL (v16.2 - GitHub Remote Fixed) ==========
-print("🔧 Iniciando carregamento v16.2. Pressione F9 para ver os logs.")
+-- ========== LOADER PRINCIPAL (v16.3 - Strictly Remote) ==========
+-- Corrigido: Removido qualquer uso de readfile() que causava erro de diretório.
+print("🔧 Iniciando carregamento v16.3. Pressione F9 para ver os logs.")
 
 local BASE_URL = "https://raw.githubusercontent.com/RobloxScriptPrivate/aimbot/main/"
 
--- Função para buscar e carregar código da URL
+-- Função robusta para buscar código da URL
 local function fetch(file)
     local cache_buster = "?v=" .. os.time() .. "&r=" .. math.random(1, 1000000)
     local url = BASE_URL .. file .. cache_buster
-    print("⚡ Baixando de: " .. url)
-    local success, content = pcall(game.HttpGet, game, url, true)
+    print("⚡ Baixando: " .. file)
+    
+    local success, content = pcall(function()
+        return game:HttpGet(url, true)
+    end)
+    
     if success and content and #content > 0 then
-        print("✅ Download de '"..file.."' bem-sucedido.")
         return content
     else
-        print("🔥🔥 FALHA CRÍTICA NO DOWNLOAD de '"..file.."'. Erro: " .. tostring(content))
+        warn("❌ FALHA NO DOWNLOAD: "..file.." | Erro: "..tostring(content))
         return nil
     end
 end
 
--- Etapa 1: Carregar a biblioteca GUI
+-- Etapa 1: Carregar a biblioteca GUI (Remoto)
 local gui_code = fetch("gui.lua")
-if not gui_code then return warn("❌ Erro ao baixar GUI") end
+if not gui_code then 
+    return warn("❌ ERRO CRÍTICO: Não foi possível baixar a gui.lua do GitHub.") 
+end
+
 local Library = loadstring(gui_code)()
-if not Library then return warn("❌ Erro ao executar GUI") end
+if not Library then 
+    return warn("❌ ERRO CRÍTICO: Falha ao executar a biblioteca GUI.") 
+end
+print("✅ Biblioteca GUI carregada com sucesso.")
 
 -- Etapa 2: Criar as categorias
 local startX, startY, catWidth, spacing = 10, 120, 150, 10
@@ -39,15 +49,18 @@ local function LoadModule(filename, category)
         local func, err = loadstring(code)
         if func then
             local success, result = pcall(func, Library, category)
-            if success then return result end
-            warn("Erro ao executar "..filename..": "..tostring(result))
+            if success then 
+                print("✅ Módulo carregado: "..filename)
+                return result 
+            end
+            warn("❌ Erro ao executar "..filename..": "..tostring(result))
         else
-            warn("Erro de sintaxe em "..filename..": "..tostring(err))
+            warn("❌ Erro de sintaxe em "..filename..": "..tostring(err))
         end
     end
 end
 
--- Carregar módulos padrão
+-- Carregar módulos padrão do GitHub
 LoadModule("aimbot.lua",   Combat)
 LoadModule("hitbox.lua",   Combat)
 LoadModule("esp.lua",      Visual)
@@ -55,7 +68,7 @@ LoadModule("nametag.lua",  Visual)
 LoadModule("movement.lua", Movement)
 LoadModule("teleport.lua", Teleport)
 
--- Etapa 3.5: Módulo de Scanner de Mapa (Corrigido para Framework)
+-- Etapa 3.5: Módulo de Scanner de Mapa (Corrigido)
 do
     local scanWindow
     local function runMapScan()
@@ -96,7 +109,7 @@ do
     Misc:AddModule("🔬 Scan do Mapa", runMapScan, true)
 end
 
--- Etapa 3.6: Módulo Arsenal (Corrigido para Framework)
+-- Etapa 3.6: Módulo Arsenal (Corrigido)
 do
     local arsenalWindow, weaponListFrame
     local toolGiverNames = { "ToolGiver", "WeaponGiver", "SwordGiver", "GunGiver" }
@@ -143,4 +156,4 @@ do
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
 end
 
-print("✅ Carregamento Finalizado (v16.2).")
+print("✅ Carregamento Finalizado (v16.3).")
