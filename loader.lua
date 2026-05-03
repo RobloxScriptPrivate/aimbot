@@ -87,73 +87,81 @@ cleanupFuncs.movement = LoadModule("movement.lua", Movement)
 cleanupFuncs.teleport = LoadModule("teleport.lua", Teleport)
 
 
--- Etapa 3.5: Adicionar o Módulo Arsenal (Com a lógica do script FelixXLS)
-print("\n--- Etapa 3.5: Adicionando Arsenal (Lógica Corrigida) ---")
+-- Etapa 3.5: Adicionar o Módulo de Scanner de Mapa (Com Janela e Botão de Copiar)
+print("\n--- Etapa 3.5: Adicionando Scanner de Mapa com GUI ---")
 do
-    local arsenalWindow
-
-    -- Lista de nomes exatos (do script que você forneceu)
-    local toolGiverNames = {
-        "ToolGiver1P1", "ToolGiver1P2", "ToolGiver2P1", "ToolGiver3P1", "ToolGiver3P2",
-        "ToolGiver4P1", "ToolGiver4P2", "ToolGiver5", "ToolGiver5P1", "ToolGiver5P2",
-        "ToolGiver6P1", "ToolGiver6P2", "ToolGiver7P1", "ToolGiver7P2", "ToolGiver8P1",
-        "ToolGiver8P2", "ToolGiver9P1", "ToolGiver9P2", "ToolGiver10P1", "ToolGiver10P2",
-        "ToolGiver11P1", "ToolGiver11P2", "ToolGiver12P1", "ToolGiver12P2", "ToolGiver13P1",
-        "ToolGiver13P2", "ToolGiver14P1", "ToolGiver14P2", "ToolGiver100"
-    }
-
-    local function scanAndPopulateWeapons()
-        if not arsenalWindow or not arsenalWindow.Frame then return end
+    local function runMapScan()
+        local scanWindow = Library:CreateWindow("Resultado do Scan", UDim2.new(0, 500, 0, 400), UDim2.new(0.5, -250, 0.5, -200))
         
-        for _, child in ipairs(arsenalWindow.Container:GetChildren()) do
-            if child:IsA("TextButton") and child.Name ~= "Atualizar Lista" then
-                child:Destroy()
-            end
-        end
+        scanWindow:AddLabel("Varredura em andamento...")
 
-        print("[Arsenal] Escaneando Tycoons com lista de nomes exatos...")
-        local tycoonsFolder = workspace:FindFirstChild("Tycoons")
-        if not tycoonsFolder then
-            warn("[Arsenal] Pasta 'Tycoons' não encontrada.")
-            return
-        end
+        local logLines = {}
+        local foundItems = {}
 
-        local weaponsFound = 0
-        for _, tycoon in ipairs(tycoonsFolder:GetChildren()) do
-            local purchased = tycoon:FindFirstChild("PurchasedObjects")
-            if purchased then
-                -- Itera sobre a lista de nomes exatos
-                for _, toolGiverName in ipairs(toolGiverNames) do
-                    local toolGiver = purchased:FindFirstChild(toolGiverName)
-                    if toolGiver then
-                        local tool = toolGiver:FindFirstChildOfClass("Tool")
-                        local touchPart = toolGiver:FindFirstChild("Touch")
-                        
-                        if tool and touchPart and touchPart:IsA("BasePart") then
-                            weaponsFound = weaponsFound + 1
-                            
-                            local weaponButton = arsenalWindow:AddButton(tool.Name, function()
-                                print("[Arsenal] Coletando arma: " .. tool.Name .. " com método de teleporte.")
-                                local RootPart = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                                if RootPart then
-                                    -- Método de coleta do script FelixXLS
-                                    local originalCFrame = touchPart.CFrame
-                                    touchPart.Anchored = false
-                                    touchPart.CFrame = RootPart.CFrame
-                                    task.wait(0.1)
-                                    -- Opcional: mover de volta para não deixar o mapa bagunçado
-                                    -- touchPart.CFrame = originalCFrame
-                                end
-                            end)
-                            weaponButton.Name = tool.Name
-                        end
+        local function scan(instance, depth)
+            if depth > 8 then return end
+
+            pcall(function()
+                local name = string.lower(instance.Name)
+                local path = instance:GetFullName()
+
+                if string.find(name, "tool") or string.find(name, "giver") or string.find(name, "weapon") or instance:IsA("Tool") then
+                    if not foundItems[path] then
+                        table.insert(logLines, path)
+                        foundItems[path] = true
                     end
                 end
-            end
+
+                for _, child in ipairs(instance:GetChildren()) do
+                    scan(child, depth + 1)
+                end
+            end)
         end
-        print("[Arsenal] Escaneamento concluído. " .. weaponsFound .. " armas encontradas.")
+
+        -- Roda a varredura em uma nova thread para não travar a GUI
+        task.spawn(function()
+            scan(workspace, 0)
+            
+            local fullLog = table.concat(logLines, "\n")
+            if #fullLog == 0 then
+                fullLog = "Nenhum item suspeito (tool, giver, weapon) encontrado no workspace."
+            end
+
+            -- Limpa a janela e adiciona os resultados
+            scanWindow.Container:ClearAllChildren()
+
+            local logBox = Instance.new("TextBox")
+            logBox.Name = "LogDisplay"
+            logBox.MultiLine = true
+            logBox.TextWrapped = true
+            logBox.ReadOnly = true
+            logBox.TextXAlignment = Enum.TextXAlignment.Left
+            logBox.TextYAlignment = Enum.TextYAlignment.Top
+            logBox.Font = Enum.Font.SourceSans
+            logBox.TextSize = 14
+            logBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+            logBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            logBox.Size = UDim2.new(1, -10, 1, -80)
+            logBox.Position = UDim2.new(0, 5, 0, 5)
+            logBox.Text = fullLog
+            logBox.Parent = scanWindow.Container
+
+            scanWindow:AddButton("Copiar Logs", function()
+                setclipboard(fullLog)
+                scanWindow:AddLabel("Copiado!") -- Feedback para o usuário
+            end)
+        end)
     end
 
+    Misc:AddModule("🔬 Iniciar Scan do Mapa", runMapScan, true)
+    print("✅ Módulo de Scanner de Mapa com GUI adicionado.")
+end
+
+
+-- Etapa 3.6: Adicionar o Módulo Arsenal (Aguardando resultado do Scan)
+print("\n--- Etapa 3.6: Adicionando Arsenal (Aguardando Scan) ---")
+do
+    local arsenalWindow
     local function openArsenalWindow()
         if not arsenalWindow or not arsenalWindow.Frame.Parent then 
             arsenalWindow = Library:CreateWindow("Arsenal do Mapa", UDim2.new(0, 300, 0, 400), UDim2.new(0.5, -150, 0.5, -200))
@@ -161,23 +169,17 @@ do
                 arsenalWindow.Title.Font = Enum.Font.SourceSansBold
                 arsenalWindow.Title.TextSize = 16
             end
-
-            local refreshBtn = arsenalWindow:AddButton("Atualizar Lista", scanAndPopulateWeapons)
-            refreshBtn.Name = "Atualizar Lista"
-
-            task.wait(0.1)
-            scanAndPopulateWeapons()
+            arsenalWindow:AddLabel("Execute o Scan do Mapa primeiro!")
         end
         arsenalWindow.Frame.Visible = not arsenalWindow.Frame.Visible
     end
-
     Misc:AddModule("🔫 Arsenal", openArsenalWindow, true)
-    print("✅ Módulo de Arsenal integrado com a lógica correta.")
+    print("✅ Módulo de Arsenal temporariamente desativado.")
 end
 
 
--- Etapa 3.6: Adicionar o Módulo Killaura diretamente
-print("\n--- Etapa 3.6: Adicionando Killaura ---")
+-- Etapa 3.7: Adicionar o Módulo Killaura diretamente
+print("\n--- Etapa 3.7: Adicionando Killaura ---")
 local killauraModule = Misc:AddModule("🎯 Killaura", function(enabled)
     Library.Killaura.Enabled = enabled
 end)
